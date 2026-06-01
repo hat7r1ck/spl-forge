@@ -1,0 +1,1322 @@
+{
+  "spl2_reference": {
+    "meta": {
+      "source": "https://help.splunk.com/en/splunk-cloud-platform/search/spl2-search-manual",
+      "description": "Offline SPL2 reference. Syntax, operators, types, time functions, and examples.",
+      "sections": [
+        "datasets_and_dataset_literals",
+        "expressions_and_predicates",
+        "functions",
+        "data_types",
+        "dates_and_time",
+        "sort_and_order",
+        "wildcards_quotes_escape",
+        "event_segmentation",
+        "comments"
+      ]
+    },
+
+    "datasets_and_dataset_literals": {
+      "datasets": {
+        "description": "A dataset is a collection of data to search or containing search results. Every SPL2 search references one.",
+        "dataset_kinds": [
+          {
+            "kind": "index",
+            "description": "Time-series event index (tsidx). Supports filtering/aggregation via WHERE or stats commands."
+          },
+          {
+            "kind": "metric",
+            "description": "Metrics index (msidx) for metric data. Supports some inline aggregation."
+          },
+          {
+            "kind": "lookup",
+            "description": "Reference data, typically stored in a KV Store lookup."
+          },
+          {
+            "kind": "view",
+            "description": "Reusable exported SPL2 search. Acts as a virtual dataset."
+          },
+          {
+            "kind": "job",
+            "description": "Materialized results of a search run, identified by a search ID (SID)."
+          },
+          {
+            "kind": "import",
+            "description": "Local alias for a dataset from another module."
+          },
+          {
+            "kind": "destination",
+            "description": "Target for pipeline output (S3, Index, HEC, devnull, etc.)."
+          }
+        ],
+        "dataset_references": {
+          "same_module": "FROM <dataset_name>",
+          "different_module": "FROM <module_name>.<dataset_name>",
+          "built_in_example": "FROM catalog.datasets WHERE kind=\"index\""
+        },
+        "permanent_datasets": "Stored on disk (indexes, lookups, views). Each must have a unique name within a module.",
+        "temporary_datasets": {
+          "description": "Unsaved, standalone SPL2 datasets. Must be enclosed in square brackets [ ].",
+          "types": [
+            "subsearches",
+            "dataset literals",
+            "dataset function results",
+            "job datasets"
+          ]
+        },
+        "dataset_permissions": "Permissions are checked at search runtime. A dataset defined in the same module may still be inaccessible if the user lacks permission."
+      },
+
+      "dataset_literals": {
+        "description": "Inline datasets typed directly into a search, not stored anywhere. Max 30,000 characters.",
+        "format": "A JSON-like array of objects. Each object = one event/row.",
+        "format_rules": [
+          "Enclose entire literal in square brackets [ ]",
+          "Enclose each object in curly brackets { }",
+          "Separate objects with commas (except last)",
+          "Separate field-value pairs with commas",
+          "Separate field from value with colon :",
+          "Field names with chars other than a-z A-Z 0-9 _ must be in single quotes",
+          "String values must be in double quotes"
+        ],
+        "syntax": "[ { field1: value1, field2: \"string\" }, { field1: value2 } ]",
+        "use_with": ["FROM command", "union command", "eval command"],
+        "behaviors": {
+          "with_from": "Each object becomes a separate event",
+          "with_eval": "The entire array becomes one event (as a field value)",
+          "with_union": "Events from literal are merged with other datasets"
+        },
+        "empty_literal": "FROM [{}]  → creates 1 event with only _time field",
+        "examples": [
+          "$search = FROM [{ state: \"WA\", population: 7535591 }, { state: \"CA\", population: 39557045 }]",
+          "$events = FROM [{ _time: \"2024/01/20 12:00\", clientip: \"192.0.2.0\", action: \"purchase\", price: 39.99 }]",
+          "$temps = FROM [{ day: \"mon\", temp: 42 }, { day: \"tue\", temp: 40 }]",
+          "union customers, orders, [{ vendor: \"Acme\", city: \"NYC\", vendorID: 1234 }]"
+        ],
+        "sample_dataset_templates": {
+          "product_orders": "$events = FROM [{_time:\"2024/01/20 12:00\",clientip:\"192.0.2.0\",action:\"purchase\",pid:\"DC-SG-G02\",quantity:1,price:39.99},{_time:\"2024/01/20 11:58\",clientip:\"203.0.113.0\",action:\"purchase\",pid:\"WC-SH-A01\",quantity:1,price:25.99}]",
+          "failed_logins": "$events = FROM [{_raw:\"Wed Feb 14 2023 23:16:57 mailsv1 sshd[4590]: Failed password for apache from 78.111.167.117 port 3801 ssh2\"}]",
+          "people": "$people = FROM [{\"name\":\"Alex Martin\",\"age\":25,\"city\":\"San Francisco\"},{\"name\":\"Wei Zhang\",\"age\":39,\"city\":\"Seattle\"}]",
+          "empty_events": "$events = FROM [{},{},{},{},{}]"
+        }
+      },
+
+      "dataset_functions": {
+        "description": "Functions that create events to form a dataset. Use with any generating command (from, join, union).",
+        "functions": [
+          {
+            "name": "repeat",
+            "runtime": "splunkd",
+            "description": "Create events in a temporary dataset. Similar to makeresults in SPL.",
+            "syntax": "FROM repeat(<object>, <count>)",
+            "example": "FROM repeat({host: \"www1\", sourcetype: \"access_combined\"}, 5)"
+          }
+        ]
+      }
+    },
+
+    "expressions_and_predicates": {
+      "types_of_expressions": {
+        "description": "Expressions produce a value. Used with eval, where, SELECT/WHERE clauses of from, GROUP BY, etc. NOT valid in the search command (which has its own syntax rules).",
+        "expression_types": {
+          "string_literal": {
+            "syntax": "\"value\"",
+            "notes": "Double quotes required. Backslash IS processed as escape character.",
+            "example": "\"C:\\\\windows\"  →  C:\\windows"
+          },
+          "raw_string_literal": {
+            "syntax": "@\"value\"",
+            "notes": "Backslash NOT processed. Prefix with @. Double quotes inside must be doubled.",
+            "examples": [
+              "@\"C:\\windows\\temp\"",
+              "@\"Leroy \\\"\\\"Satchel\\\"\\\" Paige\""
+            ]
+          },
+          "boolean_literal": {
+            "values": ["true", "false"],
+            "notes": "Must be lowercase."
+          },
+          "null_literal": {
+            "value": "null",
+            "notes": "Intentional absence of value. Setting a field to null removes the field."
+          },
+          "number_literal": { "examples": ["2048", "5-4", "3.14", "-1.2e5F"] },
+          "array_literal": {
+            "syntax": "[val1, val2, ...]",
+            "notes": "Ordered collection. Values can be mixed types.",
+            "examples": ["[2,4,6,8]", "[[1,2,3], a+2]"]
+          },
+          "object_literal": {
+            "syntax": "{key: value, ...}",
+            "notes": "JSON-like object. Internally stored with double-quoted keys.",
+            "examples": [
+              "{day: \"mon\", temp: 42}",
+              "{type: \"cooperative\", 'game-name': \"Forbidden Island\"}"
+            ]
+          },
+          "search_literal": {
+            "syntax": "`term1 term2`",
+            "notes": "Backtick-enclosed. AND is implied between terms. Lets you use SPL-style matching in FROM/WHERE.",
+            "examples": ["`500 ERROR`", "`invalid user sshd[5258]`"]
+          },
+          "field_reference": {
+            "notes": "Field names starting with non-letter/non-underscore must be in single quotes. Names with special chars (not a-z A-Z 0-9 _) must be in single quotes. No square brackets in field names.",
+            "examples": ["client_ip", "port", "'5minutes'", "'status-code'"]
+          },
+          "assignment_expression": {
+            "syntax": "field = expression",
+            "notes": "Replaces existing field or creates new field.",
+            "examples": [
+              "speed = distance/time",
+              "'low-category' = lower(categoryId)"
+            ]
+          },
+          "binary_expression": {
+            "operators": ["+", "-", "/", "*", "%"],
+            "notes": "+ also concatenates strings.",
+            "examples": ["bytes/1024", "surname + \", \" + firstname"]
+          },
+          "unary_expression": {
+            "syntax": "[+ | -] expression",
+            "notes": "Space required between sign and argument.",
+            "examples": ["- discount_amount", "- (.20)"]
+          },
+          "function_call": {
+            "syntax": "function_name(expression, ...)",
+            "examples": [
+              "avg(size)",
+              "case(status=200,\"OK\",status=404,\"Not found\")"
+            ]
+          },
+          "parameter_reference": {
+            "syntax": "$name",
+            "notes": "Placeholder requiring a value at search runtime.",
+            "example": "FROM weblogs WHERE status=$status"
+          },
+          "lambda_expression": {
+            "syntax": "([params]) -> expression | { stmts }",
+            "notes": "Passes a function as an argument. See lambda_expressions section."
+          }
+        }
+      },
+
+      "string_templates": {
+        "description": "Embed expressions inside a string literal using ${expression} syntax for readable formatted strings.",
+        "syntax": "\"text ${expression} text\"",
+        "resolution": "Embedded expressions are replaced by their string representations at evaluation time.",
+        "examples": [
+          "| stats pivot(\"${status} with ${action}\", count())",
+          "| eval status_info = \"${host} with action ${action} returned ${status}\"",
+          "| eval difference = \"Diff between ${low} and ${high} is ${abs(high - low)}\"",
+          "SELECT \"Average: ${avg(price)}\" as average_price_string FROM ..."
+        ]
+      },
+
+      "field_templates": {
+        "description": "Generate a field NAME dynamically from a template expression using '${expression}' syntax.",
+        "syntax": "'${expression}'",
+        "notes": [
+          "Must be enclosed in single quotes",
+          "Field names with special chars inside the template must themselves be in single quotes"
+        ],
+        "examples": [
+          "SELECT * FROM [{city: \"Seattle\", Seattle: 123}] | eval '${city}' = 456",
+          "| eval '${country}, ${city}' = name",
+          "| eval 'value of ${metal}' = price"
+        ]
+      },
+
+      "array_and_object_literals": {
+        "creating_arrays": {
+          "examples": [
+            "| eval greeting = [\"Hello\", \"Howdy\"]",
+            "| eval a=10, value=[[1,2,3], a+2]"
+          ]
+        },
+        "creating_objects": {
+          "notes": [
+            "Keys without special chars can be unquoted, single-quoted, or double-quoted",
+            "Keys with spaces or dashes must be in single or double quotes",
+            "Duplicate keys in an object literal return an error"
+          ],
+          "examples": [
+            "| eval obj = {a:\"hello\", b:[1,2], c:x+1}",
+            "{ 'informal greeting': \"g-day mate\" }"
+          ]
+        },
+        "creating_with_eval": {
+          "example": "$search = from [{}] | eval object = {\"name\":\"Wei Zhang\",\"SSN\":\"123-45-6789\",\"city\":\"Seattle\"}"
+        }
+      },
+
+      "access_expressions": {
+        "description": "Access values inside arrays and objects using dot or bracket notation.",
+        "notation": {
+          "array_values": "square bracket [ ] only",
+          "object_values": "dot ( . ) OR square bracket [ ]"
+        },
+        "case_sensitivity": "Keys and values are case-sensitive in access expressions.",
+        "index_starts_at_zero": true,
+        "examples": [
+          "| eval competitive = games[2]",
+          "| eval name = games.category.boardgames.cooperative[1]",
+          "| eval bridge_info = cities[0].Bridges[1]",
+          "| eval bridge_info = cities[0].Bridges[1].name",
+          "| eval bridge_name = cities[0][\"Bridges\"][1][\"name\"]",
+          "| eval index=0, bridge_name = cities[index].Bridges[5-4]"
+        ],
+        "reserved_word_keys": "Enclose reserved-word keys in single quotes. Example: boardgames.'group'.cooperative[2]"
+      },
+
+      "search_literals_in_expressions": {
+        "description": "Search literals let you use SPL-style keyword matching inside FROM/WHERE and with eval/stats.",
+        "syntax": "`terms`",
+        "and_is_implied": true,
+        "use_cases": [
+          "Use SPL commands not supported natively in SPL2",
+          "Simplify WHERE clause keyword matching",
+          "Use in stats count() to count events matching a term",
+          "Use in eval if() as a condition"
+        ],
+        "examples": [
+          "FROM main WHERE `500 ERROR`",
+          "FROM main WHERE sourcetype=\"secure\" AND `invalid user sshd[5258]`",
+          "| stats count(`500`) by host",
+          "| eval error_type = if(`error=4*`, \"user\", \"server\")",
+          "FROM main WHERE host=\"www3\" | `top limit=20 referer`"
+        ],
+        "vs_search_command": {
+          "search_command": "search index=main 500",
+          "from_with_searchmatch": "FROM main WHERE searchmatch(\"500\")",
+          "from_with_literal": "FROM main WHERE `500`"
+        }
+      },
+
+      "lambda_expressions": {
+        "description": "Function literals passed as arguments to other functions. Used primarily with JSON functions (any, all, filter, map, reduce).",
+        "syntax": "([params]) -> expression | { [var=expr; ...] return expression }",
+        "lambda_symbol": "->",
+        "rules": {
+          "no_params": "() -> expression",
+          "one_param": "$a -> $a + 1  OR  ($a) -> $a + 1",
+          "multiple_params": "($a, $b) -> $a + $b  - parentheses REQUIRED",
+          "single_expr_in_braces": "($a) -> { return $a + 1 }",
+          "multiple_stmts": "($a) -> { $c=$a*2; $d=$a*4; return $c+$d }",
+          "multi_line": "($a) -> {\n  $c=$a*2\n  $d=$a*4\n  return $c+$d\n}"
+        },
+        "implicit_it_shortcut": "$it + 2  is shorthand for  $it -> $it + 2",
+        "default_param_values": "($count: int=5) -> ...",
+        "param_type": "Default type is any. Specify with colon: ($a: string)",
+        "examples": [
+          "| eval new_results = map(results, $r -> $r*10)",
+          "from worldDataset select map(cities, ($val) -> { $region = \"emea_\" + $val; return $region; }) as regionCities",
+          "$basic = from [{array:[{key:\"one\",n:1},{key:\"two\",n:2}]}] | eval keyvals=reduce(array, {}, ($acc,$it) -> json_set_exact($acc,$it.key,$it.n))"
+        ],
+        "functions_that_accept_lambdas": [
+          "any",
+          "all",
+          "filter",
+          "map",
+          "reduce"
+        ]
+      },
+
+      "predicate_expressions": {
+        "description": "Expressions that evaluate to TRUE or FALSE. Used in WHERE/HAVING clauses, where command, and IS operator checks.",
+        "relational_operators": [
+          { "op": "=", "alias": "==", "meaning": "equals" },
+          { "op": "!=", "meaning": "does not equal" },
+          { "op": ">", "meaning": "greater than" },
+          { "op": ">=", "meaning": "greater than or equal to" },
+          { "op": "<", "meaning": "less than" },
+          { "op": "<=", "meaning": "less than or equal to" }
+        ],
+        "logical_operators": {
+          "AND": {
+            "description": "Both must be TRUE. Implied between terms in search command.",
+            "note": "search: OR before AND. from/where: AND before OR."
+          },
+          "OR": { "description": "At least one must be TRUE." },
+          "NOT": {
+            "description": "Must not be TRUE. Applies only to the next term. Use parentheses for multiple terms."
+          },
+          "XOR": { "description": "Exactly one must be TRUE." }
+        },
+        "evaluation_order": {
+          "search_command": ["( )", "NOT", "OR", "AND", "XOR"],
+          "from_and_where_commands": ["( )", "NOT", "AND", "OR", "XOR"]
+        },
+        "operator_BETWEEN": {
+          "syntax": "expression BETWEEN low AND high",
+          "not_syntax": "expression NOT BETWEEN low AND high",
+          "examples": [
+            "quake_magnitude BETWEEN 4 AND 8",
+            "client_ip between \"192.0.2.0\" and \"192.0.2.24\"",
+            "threshold NOT BETWEEN -1.2 AND 3.5",
+            "HAVING ipaddress BETWEEN \"192.0.2.0\" AND \"192.0.2.255\""
+          ]
+        },
+        "operator_EXISTS": {
+          "syntax": "EXISTS (subsearch)",
+          "not_syntax": "NOT EXISTS (subsearch)",
+          "description": "TRUE if at least one event in the main search correlates with an event in the subsearch.",
+          "requirements": [
+            "Main dataset must be aliased with AS",
+            "Subsearch must have a WHERE clause with a correlation expression",
+            "Only = operator supported in correlation expression",
+            "LIMIT and OFFSET not supported in subsearch",
+            "Only valid in WHERE or HAVING clause of the from command"
+          ],
+          "example": "FROM orders AS o1 WHERE EXISTS (SELECT prodno FROM products WHERE prodno=o1.prodno AND availability=\"in stock\") GROUP BY span(_time,3h) SELECT custno, orderno, status"
+        },
+        "operator_IN": {
+          "syntax": "field-expression IN (expression-list)",
+          "not_syntax": "field-expression NOT IN (expression-list)",
+          "examples": [
+            "status IN(\"400\",\"401\",\"403\",\"404\")",
+            "code IN(10, 29)",
+            "status NOT IN(\"200\",\"202\",\"204\")",
+            "| search status IN (401, 403)"
+          ]
+        },
+        "operator_IS": {
+          "syntax": "expression IS data-type",
+          "not_syntax": "NOT (expression IS data-type)",
+          "description": "Test if a value matches a built-in or custom data type.",
+          "examples": [
+            "| where customer_name IS string",
+            "| where NOT (customer_name IS string)",
+            "| eval result = if(employee_id IS id_number, \"id\", \"not id\")"
+          ]
+        },
+        "operator_IS_NULL": {
+          "syntax": "expression IS NULL",
+          "not_syntax": "expression IS NOT NULL",
+          "examples": ["WHERE client_ip IS NULL", "WHERE client_ip IS NOT NULL"]
+        },
+        "operator_LIKE": {
+          "syntax": "field-expression LIKE pattern-expression",
+          "not_syntax": "field-expression NOT LIKE pattern-expression",
+          "wildcards": {
+            "%": "match 0 or more characters",
+            "_": "match exactly 1 character"
+          },
+          "examples": [
+            "name LIKE \"Pete%\"",
+            "surname LIKE \"%son\"",
+            "client_ip NOT LIKE \"192.0.2.%\"",
+            "WHERE ipaddress LIKE \"198.%.100.0\"",
+            "categoryId LIKE(\"S%\")"
+          ]
+        }
+      },
+
+      "regular_expressions": {
+        "description": "SPL2 uses PCRE (Perl Compatible Regular Expressions). Used with rex command and eval functions: match, mvfind, replace.",
+        "pipe_in_regex": "Must enclose regex containing | in quotation marks. Example: ...| regex \"expression | with pipe\"",
+        "backslash_notes": [
+          "In regex, \\ escapes special characters (e.g., \\. matches a literal period)",
+          "For Windows file paths with double backslash (c:\\\\temp), you need 4 backslashes in search: c:\\\\\\\\temp",
+          "SPL2 uses * as wildcard; backslash cannot escape * in search strings"
+        ],
+        "character_types": [
+          {
+            "symbol": "\\w",
+            "meaning": "Word character (letter, digit, or underscore)"
+          },
+          { "symbol": "\\W", "meaning": "Non-word character" },
+          { "symbol": "\\d", "meaning": "Digit character" },
+          { "symbol": "\\D", "meaning": "Non-digit character" },
+          { "symbol": "\\s", "meaning": "Whitespace character" },
+          { "symbol": "\\S", "meaning": "Non-whitespace character" },
+          { "symbol": ".", "meaning": "Any character (use sparingly)" }
+        ],
+        "quantifiers": [
+          { "symbol": "*", "meaning": "0 or more times" },
+          { "symbol": "+", "meaning": "1 or more times" },
+          { "symbol": "?", "meaning": "0 or 1 times" },
+          { "symbol": "{n,m}", "meaning": "Between n and m times" }
+        ],
+        "groups": [
+          { "syntax": "( )", "meaning": "Capture group" },
+          {
+            "syntax": "(?P<name>...)",
+            "meaning": "Named capture group, extracts field"
+          },
+          { "syntax": "(?:...)", "meaning": "Non-capturing group" },
+          { "syntax": "[ ]", "meaning": "Character class" },
+          { "syntax": "[[ ]]", "meaning": "Splunk modular regex" }
+        ],
+        "alternation": "Use | inside regex for OR. Enclose in quotes if used in search.",
+        "capture_group_example": "(?<ip>\\d+\\.\\d+\\.\\d+\\.\\d+) (?<result>\\w+) (?<user>.*)"
+      }
+    },
+
+    "functions": {
+      "overview": {
+        "description": "Functions accept parameters and return a value. Used with commands like eval, stats, where, timechart.",
+        "types": [
+          "evaluation functions",
+          "statistical/charting functions",
+          "dataset functions",
+          "custom eval functions",
+          "custom command functions"
+        ]
+      },
+
+      "naming_function_arguments": {
+        "description": "Optionally name arguments when calling functions to improve readability and allow any order.",
+        "syntax": "function_name(arg_name: value, arg_name2: value2)",
+        "rules": [
+          "Argument names separated from values by colon :",
+          "Lists of values must be enclosed in square brackets [ ]",
+          "Named arguments can appear in any order (if all are named)",
+          "Unnamed arguments must come before named arguments",
+          "To override only some default values, you must name those arguments"
+        ],
+        "examples": [
+          "round(num: 2.555, precision: 2)",
+          "round(precision: 2, num: 2.555)",
+          "round(2.555, precision: 2)",
+          "| eval response = if(predicate: code=200, true_value: \"OK\", false_value: \"Error\")",
+          "mvrange(start: 1, end: 11, step: 2)",
+          "FROM main | my_sourcetype field=host sourcetype=\"webaccess\" status=200"
+        ],
+        "invalid_examples": [
+          "round(num: 2.555, 2)  ← named arg before unnamed",
+          "coalesce(values: clientip, ipaddress)  ← list must be in [ ]"
+        ]
+      },
+
+      "custom_eval_functions": {
+        "description": "User-defined functions that return a single value. Used with eval, where, and WHERE/SELECT clauses of from.",
+        "syntax": "function <name>([<$param> [: <type>] [=<default>]], ...) [: <return_type>] {\n  [spl-statements]\n  return <expression>\n}",
+        "notes": [
+          "Parentheses required even with no parameters",
+          "Curly braces required even with no SPL statements",
+          "Function names must start with a letter or underscore, no spaces",
+          "Parameter names must start with $ followed by a letter or _",
+          "Default type for parameters: any. Default return type: any",
+          "Cannot reference search statements defined outside the function"
+        ],
+        "examples": [
+          "function is_error($code: number): boolean {\n  return $code >= 400\n}",
+          "function hello($fullname: string): string {\n  return \"Howdy\" + \" \" + $fullname\n}",
+          "function round_if($field: int, $precision: number=2): int {\n  return if($field>1, round($field, $precision), $field)\n}"
+        ],
+        "usage_examples": [
+          "| FROM jsondata WHERE method=\"GET\" AND is_error(status_code)",
+          "| eval greeting = hello(name)",
+          "FROM $sample SELECT score, round_if(score) as newscore",
+          "FROM $sample SELECT score, round_if(score, 4) as newscore  ← override default"
+        ]
+      },
+
+      "custom_command_functions": {
+        "description": "Functions that behave like commands. Two types: generating (used first in pipeline) and non-generating (used after pipe).",
+        "syntax": "function <name>([<$param> [: <type>] [=<default>]], ...) [: <return_type>] {\n  [spl-statements]\n  return | <search>\n}",
+        "notes": [
+          "Parentheses and curly braces always required",
+          "Non-generating functions must have at least one parameter identifying the source dataset (commonly named $source or $data)",
+          "Default return type: dataset (unless function contains a terminating command like into)",
+          "To invoke: use function name without $ prefix"
+        ],
+        "generating_example": {
+          "description": "Creates events from scratch",
+          "code": "function makeresults($count) {\n  return | FROM repeat({}, $count)\n  | eval _time = now()\n  | streamstats count\n  | eval _time = _time - (count*3600);\n}",
+          "invocation": "| makeresults 5"
+        },
+        "non_generating_example": {
+          "description": "Processes piped data",
+          "code": "function top($source, $field, $limit: int=8) {\n  return | FROM $source\n  | stats count() by $field\n  | sort -count\n  | head $limit\n}",
+          "invocation": "FROM main | top host 5",
+          "invocation_named": "FROM main | top field=host $limit=12"
+        },
+        "dataset_literal_example": {
+          "description": "Generating function using a dataset literal for testing",
+          "code": "function test_events() {\n  return | FROM [\n    {\"type\": \"cooperative\", \"name\": \"Forbidden Island\"},\n    {\"type\": \"competitive\", \"name\": \"Settlers of Catan\"}\n  ]\n}",
+          "invocation": "test_events"
+        }
+      },
+
+      "documentation_comments": {
+        "description": "Javadoc-style comments for custom functions that appear in UIs as hover tooltips.",
+        "block_start": "/**",
+        "line_prefix": " *",
+        "block_end": " */",
+        "tags": {
+          "@param": "@param $name - Description of parameter",
+          "@example": "Followed by description and ```spl ... ``` code block"
+        },
+        "example": "/**\n * Returns top-N values from a field.\n * @param $source - The dataset.\n * @param $field - The field to aggregate.\n * @param $limit - Max results to return.\n * @example\n * Return top 5 hosts.\n * ```spl\n * FROM main | top host 5\n * ```\n */\nfunction top($source, $field, $limit: int) { ... }"
+      }
+    },
+
+    "data_types": {
+      "overview": {
+        "description": "SPL2 is loosely typed by default but supports optional strong typing via data types. Use types to add structure, validation, and handling logic.",
+        "when_to_use_strong_typing": [
+          "Eliminating field value ambiguity",
+          "Enforcing consistent data schema",
+          "Validating data quality",
+          "Routing/filtering data by type in pipelines"
+        ]
+      },
+
+      "built_in_types": {
+        "any": {
+          "description": "Default. Accepts any type.",
+          "example": "\"firstname\", -1d, 450925.123"
+        },
+        "array": {
+          "description": "Ordered collection of values (mixed types allowed).",
+          "syntax": "[val1, val2, ...]",
+          "example": "[\"buttercup\", 3.15]"
+        },
+        "boolean": {
+          "description": "true or false only. Must be lowercase.",
+          "valid": ["true", "false"]
+        },
+        "dataset": {
+          "description": "A collection of data (index name or dataset literal).",
+          "example": "main, [{day:\"mon\",temp:42}]"
+        },
+        "double": {
+          "description": "Double-precision float. Optional D suffix.",
+          "examples": ["56.11", "1.2e-3", "12D"]
+        },
+        "float": {
+          "description": "32-bit float. F suffix REQUIRED.",
+          "examples": ["3.14F", "-1.2e5F", "-27F"]
+        },
+        "int": {
+          "description": "Integer (whole number). No suffix needed.",
+          "examples": ["365", "-32"]
+        },
+        "log_span": {
+          "description": "Logarithm-based span: coefficient followed by 'log' and base.",
+          "format": "<coefficient>log<base>",
+          "examples": ["2log10", "7log12", "1.5log10"]
+        },
+        "long": {
+          "description": "64-bit integer. L suffix REQUIRED.",
+          "examples": ["1500000000000L", "-370000000L"]
+        },
+        "mv": {
+          "description": "Multivalue, ordered collection where values are separated by newlines."
+        },
+        "number": {
+          "description": "Union of double, float, int, long. SPL2 handles precision dynamically.",
+          "examples": ["-250", "3.14"]
+        },
+        "object": {
+          "description": "JSON-like key-value structure.",
+          "syntax": "{key: value, ...}",
+          "example": "{name:\"Golden Gate Bridge\",length:8981}"
+        },
+        "regex": {
+          "description": "A PCRE regular expression.",
+          "syntax": "/<pattern>/",
+          "example": "/^[a-z][a-z0-9_]*/"
+        },
+        "relative_time": {
+          "description": "Time offset from now. Format: [+|-]<int><unit>[@<unit>]",
+          "examples": ["-10h@h", "-7d", "@w0"]
+        },
+        "string": {
+          "description": "Sequence of characters. Must be in double quotes.",
+          "escape_sequences": {
+            "\\\"": "double quote",
+            "\\\\": "backslash",
+            "\\n": "newline",
+            "\\t": "tab",
+            "\\r": "carriage return",
+            "\\b": "backspace",
+            "\\f": "form feed",
+            "\\uXXXX": "unicode char",
+            "\\${": "literal ${ sequence"
+          }
+        },
+        "time": {
+          "description": "UNIX time value (seconds since epoch).",
+          "examples": ["1518632124", "1618339153"]
+        },
+        "time_span": {
+          "description": "Time increment for organizing results. Format: <integer><timescale>",
+          "examples": ["15s", "3m", "h", "2mon", "1qtr"]
+        }
+      },
+
+      "type_suffixes": {
+        "D": "Force double  (e.g., 50D)",
+        "F": "Force float   (e.g., 3.14F), REQUIRED",
+        "L": "Force long    (e.g., 1500000000000L), REQUIRED"
+      },
+
+      "custom_data_types": {
+        "description": "User-defined types derived from built-in or other custom types.",
+        "base_syntax": "type <name> = <type-expression>",
+        "type_categories": {
+          "constrained": {
+            "description": "Add a WHERE constraint to an existing type.",
+            "syntax": "type <name> = <base_type> WHERE <predicate>",
+            "examples": [
+              "type positive_integer = int WHERE $value >= 0",
+              "type http_error = int WHERE $value in([403, 404, 408])",
+              "type score = int WHERE $value BETWEEN 0 AND 100",
+              "type grade = string WHERE $value IN (\"A\",\"B\",\"C\",\"D\",\"F\")",
+              "type ipv4 = string WHERE match($value, \"(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\")",
+              "type ipv6 = string WHERE match($value, \"((([0-9a-fA-F]){1,4})\\\\:){7}([0-9a-fA-F]){1,4}\")",
+              "type elderly_person = person WHERE $value.age > 70"
+            ]
+          },
+          "structured": {
+            "description": "Define a JSON object with named properties.",
+            "syntax": "type <name> = { prop1: type1, prop2?: type2, *: type3 }",
+            "notes": [
+              "Append ? to make a property optional",
+              "* wildcard allows additional properties of any name",
+              "*: string restricts wildcard properties to string type"
+            ],
+            "examples": [
+              "type person = { firstname: string, surname: string, age: int }",
+              "type person_flexible = { firstname: string, surname: string, age?: int }",
+              "type person_open_ended = { firstname: string, age: int, * }"
+            ]
+          },
+          "array": {
+            "description": "Typed homogeneous array.",
+            "syntax": "type <name> = <data_type>[]",
+            "examples": [
+              "type fullnames = string[]",
+              "type personnel = object[]",
+              "type personnel = {*}[]"
+            ]
+          },
+          "union": {
+            "description": "Accepts any of multiple types (OR).",
+            "syntax": "type <name> = type1 | type2 ...",
+            "examples": [
+              "type json = array | object",
+              "type ipaddress = ipv4 | ipv6",
+              "type results = grade | score"
+            ]
+          },
+          "additive": {
+            "description": "Combine properties of 2 structured types.",
+            "syntax": "type <name> = structured_type1 + structured_type2",
+            "example": "type customerWithAddress = customer + address"
+          },
+          "subtractive": {
+            "description": "Subtract properties of one structured type from another.",
+            "syntax": "type <name> = structured_type1 - structured_type2",
+            "example": "type client_anonymized = client - person"
+          }
+        },
+        "checking_data_against_types": {
+          "is_operator": "| where customer IS id_number",
+          "eval_check": "| eval result = if((code IS error_code), \"true\", \"false\")",
+          "custom_function_check": "function type_check($data) { return if(($data IS error_code), \"true\", \"false\") }"
+        }
+      }
+    },
+
+    "dates_and_time": {
+      "timestamps": {
+        "storage_format": "All timestamps stored as UNIX time in the _time field (seconds since 1970-01-01 00:00:00 UTC).",
+        "display": "Splunk UIs display _time in human-readable format, but internally it is UNIX time.",
+        "index_time_field": "_indextime, when the event was indexed (vs. _time which is when the event occurred)",
+        "gmt_vs_utc": {
+          "GMT": "A time zone used in some European/African countries. Never changes for DST.",
+          "UTC": "A time standard (not a time zone). The basis for all time zones. Never changes for DST."
+        }
+      },
+
+      "time_modifiers": {
+        "description": "Add to a search to constrain the time range. Use = or != operators only.",
+        "primary_modifiers": {
+          "earliest": {
+            "syntax": "earliest=[+|-]<int><unit>[@<unit>]  OR  earliest=\"YYYY-MM-DD:HH:MM:SS\"",
+            "description": "Earliest event time (_time field). earliest=1 = UNIX epoch."
+          },
+          "latest": {
+            "syntax": "latest=[+|-]<int><unit>[@<unit>]",
+            "description": "Latest event time. Defaults to now() if omitted."
+          },
+          "_index_earliest": {
+            "description": "Earliest indexed time (_indextime field)."
+          },
+          "_index_latest": {
+            "description": "Latest indexed time (_indextime field)."
+          },
+          "now": {
+            "syntax": "now() or now",
+            "description": "Refers to the current moment in time."
+          }
+        },
+        "examples": [
+          "WHERE earliest=-5m",
+          "WHERE earliest=-40s",
+          "WHERE earliest=-4h latest=-2h",
+          "WHERE earliest=@w0",
+          "WHERE earliest=-5d@w1 AND latest=@w6",
+          "WHERE earliest=\"2023-11-15:20:00:00\" AND latest=\"2023-11-22:20:00:00\"",
+          "WHERE earliest=1 AND latest=now()  ← all time",
+          "_index_earliest=-h@h _index_latest=@h"
+        ],
+        "legacy_modifiers_caution": "daysago, endtime, hoursago, minutesago, monthsago, etc. still work but may be removed in a future release."
+      },
+
+      "relative_time": {
+        "description": "Time relative to the current moment. Syntax: [+|-]<int><unit>[@<snap_unit>]",
+        "syntax": "[+|-]<time_integer><time_unit>[@<time_unit>]",
+        "offset_sign": { "-": "in the past", "+": "in the future" },
+        "time_units": [
+          {
+            "unit": "second",
+            "abbreviations": ["s", "sec", "secs", "second", "seconds"]
+          },
+          {
+            "unit": "minute",
+            "abbreviations": ["m", "min", "mins", "minute", "minutes"]
+          },
+          {
+            "unit": "hour",
+            "abbreviations": ["h", "hr", "hrs", "hour", "hours"]
+          },
+          { "unit": "day", "abbreviations": ["d", "day", "days"] },
+          { "unit": "week", "abbreviations": ["w", "week", "weeks"] },
+          { "unit": "month", "abbreviations": ["mon", "month", "months"] },
+          {
+            "unit": "quarter",
+            "abbreviations": ["q", "qtr", "qtrs", "quarter", "quarters"]
+          },
+          {
+            "unit": "year",
+            "abbreviations": ["y", "yr", "yrs", "year", "years"]
+          }
+        ],
+        "default_integer": "If no integer is specified, 1 is assumed. So 'h' = '1h'.",
+        "snap_to": {
+          "description": "@ symbol followed by a time unit rounds DOWN to the start of that unit.",
+          "examples": {
+            "@d": "Start of today (midnight)",
+            "@w0 or @w7": "Start of current week (Sunday)",
+            "@w1": "Most recent Monday",
+            "@w6": "Most recent Saturday",
+            "@mon or @month": "Start of current month",
+            "@q or @qtr": "Start of most recent quarter (Jan 1, Apr 1, Jul 1, Oct 1)"
+          },
+          "chaining": "@d+12h  → start of today + 12 hours = noon today",
+          "order_of_operations": "Left side of @ is applied FIRST, then the snap, then any offset after @."
+        },
+        "examples_table": [
+          {
+            "modifier": "now",
+            "description": "Current time",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-06-05 13:37:05"
+          },
+          {
+            "modifier": "-60m",
+            "description": "60 minutes ago",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-06-05 12:37:05"
+          },
+          {
+            "modifier": "-1h@h",
+            "description": "1 hour ago, snapped to hour",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-06-05 12:00:00"
+          },
+          {
+            "modifier": "-1d@d",
+            "description": "Yesterday at midnight",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-06-04 00:00:00"
+          },
+          {
+            "modifier": "-24h",
+            "description": "Exactly 24 hours ago",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-06-04 13:37:05"
+          },
+          {
+            "modifier": "-7d@d",
+            "description": "7 days ago at midnight",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-05-29 00:00:00"
+          },
+          {
+            "modifier": "@w0",
+            "description": "Start of current week (Sunday)",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-06-02 00:00:00"
+          },
+          {
+            "modifier": "+1d@d",
+            "description": "Start of tomorrow",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-06-06 00:00:00"
+          },
+          {
+            "modifier": "@d-2h",
+            "description": "Midnight minus 2 hours = 10 PM yesterday",
+            "result_from_Wed_05_Jun_2024_13:37": "2024-06-04 22:00:00"
+          }
+        ],
+        "note_24h_vs_1d": "24h and 1d are usually but not always equivalent due to Daylight Saving Time boundaries."
+      },
+
+      "time_spans": {
+        "description": "Used to bucket/group results by time increment. Used with GROUP BY span(), bin, stats, timechart.",
+        "syntax": "<integer><timescale>",
+        "notes": "If no integer specified, 1 is used. Timescale is required.",
+        "timescales": [
+          {
+            "unit": "second",
+            "abbreviations": ["s", "sec", "secs", "second", "seconds"]
+          },
+          {
+            "unit": "minute",
+            "abbreviations": ["m", "min", "mins", "minute", "minutes"]
+          },
+          {
+            "unit": "hour",
+            "abbreviations": ["h", "hr", "hrs", "hour", "hours"]
+          },
+          { "unit": "day", "abbreviations": ["d", "day", "days"] },
+          { "unit": "week", "abbreviations": ["w", "week", "weeks"] },
+          { "unit": "month", "abbreviations": ["mon", "month", "months"] },
+          {
+            "unit": "quarter",
+            "abbreviations": ["q", "qtr", "qtrs", "quarter", "quarters"]
+          },
+          {
+            "unit": "year",
+            "abbreviations": ["y", "yr", "yrs", "year", "years"]
+          }
+        ],
+        "default_spans_by_time_range_picker": [
+          { "time_range": "Last 15 minutes", "default_span": "10 seconds" },
+          { "time_range": "Last 60 minutes", "default_span": "1 minute" },
+          { "time_range": "Last 4 hours", "default_span": "5 minutes" },
+          { "time_range": "Last 24 hours", "default_span": "30 minutes" },
+          { "time_range": "Last 7 days", "default_span": "1 day" },
+          { "time_range": "Last 30 days", "default_span": "1 day" },
+          { "time_range": "Previous year", "default_span": "1 month" }
+        ],
+        "examples": [
+          "SELECT count(), host, _time FROM index WHERE sourcetype=\"webaccess\" AND `ERROR` GROUP BY host, span(_time, 5m)",
+          "| bin span=12h aligntime=@d+3h _time",
+          "| stats count(action) AS count BY _time span=30mins"
+        ]
+      },
+
+      "time_variables": {
+        "description": "Format tokens used with strftime(), strptime(), relative_time(), and now() functions.",
+        "date_and_time": [
+          {
+            "var": "%c",
+            "description": "Date and time in current locale format (e.g., Thu Jul 18 09:30:00 2022)"
+          },
+          {
+            "var": "%+",
+            "description": "Date and time with timezone in current locale format"
+          }
+        ],
+        "time_only": [
+          { "var": "%H", "description": "Hour (24h) 00-23" },
+          {
+            "var": "%I",
+            "description": "Hour (12h) 01-12. Use with %p for AM/PM."
+          },
+          {
+            "var": "%k",
+            "description": "Hour (24h) with space-padded leading zeros 0-23"
+          },
+          { "var": "%M", "description": "Minute 00-59" },
+          { "var": "%S", "description": "Second 00-59" },
+          {
+            "var": "%s",
+            "description": "UNIX epoch time (seconds since 1970-01-01 00:00:00 UTC)"
+          },
+          {
+            "var": "%T",
+            "description": "Time in 24h notation (%H:%M:%S). E.g., 23:59:59"
+          },
+          { "var": "%p", "description": "AM or PM" },
+          {
+            "var": "%N",
+            "description": "Subsecond digits. Default %9N. Options: %3N=ms, %6N=µs, %9N=ns"
+          },
+          {
+            "var": "%Q",
+            "description": "Subsecond component. %3Q=ms (000-999), %6Q=µs, %9Q=ns"
+          },
+          { "var": "%Z", "description": "Timezone abbreviation (e.g., EST)" },
+          {
+            "var": "%z",
+            "description": "Timezone offset +hhmm or -hhmm. Variants: %:z, %::z, %:::z"
+          },
+          {
+            "var": "%Ez",
+            "description": "Splunk-specific timezone in minutes"
+          },
+          { "var": "%%", "description": "Literal % character" }
+        ],
+        "date_only": [
+          {
+            "var": "%F",
+            "description": "ISO 8601 date format, equivalent to %Y-%m-%d"
+          },
+          {
+            "var": "%x",
+            "description": "Date in current locale format (e.g., 7/13/2022 for US English)"
+          }
+        ],
+        "days_and_weeks": [
+          { "var": "%A", "description": "Full weekday name (Sunday…Saturday)" },
+          { "var": "%a", "description": "Abbreviated weekday (Sun…Sat)" },
+          { "var": "%d", "description": "Day of month, zero-padded (01-31)" },
+          { "var": "%e", "description": "Day of month, space-padded (1-31)" },
+          { "var": "%j", "description": "Day of year, zero-padded (001-366)" },
+          { "var": "%V", "description": "Week of year (1-52)" },
+          {
+            "var": "%w",
+            "description": "Weekday as decimal (0=Sunday…6=Saturday)"
+          }
+        ],
+        "months": [
+          {
+            "var": "%b",
+            "description": "Abbreviated month name (Jan, Feb, …)"
+          },
+          {
+            "var": "%B",
+            "description": "Full month name (January, February, …)"
+          },
+          {
+            "var": "%m",
+            "description": "Month as decimal, zero-padded (01-12)"
+          }
+        ],
+        "years": [
+          { "var": "%y", "description": "Year without century (00-99)" },
+          { "var": "%Y", "description": "Year with century (e.g., 2024)" }
+        ],
+        "format_examples": [
+          { "format": "%Y-%m-%d", "result": "2021-12-31" },
+          { "format": "%y-%m-%d", "result": "21-12-31" },
+          { "format": "%b %d, %Y", "result": "Feb 11, 2022" },
+          {
+            "format": "%Y-%m-%dT%H:%M:%S.%Q",
+            "result": "2022-04-13T14:00:15.000"
+          }
+        ],
+        "usage_examples": [
+          "| eval WeekNo = strftime(_time, \"%V\")",
+          "| eval mytime = strftime(_time, \"%Y-%m-%dT%H:%M:%S.%Q\")"
+        ]
+      },
+
+      "time_zones": {
+        "storage": "All timestamps stored as UNIX time regardless of timezone.",
+        "indexer_assumption": "The Splunk indexer assumes incoming timestamps use its own timezone unless offset is specified.",
+        "timestamp_formats_at_index": [
+          "UNIX time in seconds: 1523644307",
+          "UNIX time in milliseconds: 1523644307000",
+          "Human-readable: 04/13/2020 11:45:30 PDT",
+          "With GMT offset: Friday, April 13, 2020 11:45:30 AM GMT -07:00",
+          "ISO 8601: 2020-04-13T11:45:30-07:00 or 2020-04-13T11:45:30Z",
+          "Local time with no timezone: 10:55AM, assumed same TZ as indexer"
+        ],
+        "consistency_note": "Searches using absolute UNIX time (e.g., earliest=-24h) return the same events regardless of user timezone.",
+        "timezone_divergence_cases": [
+          "Since 00:00:00 (midnight of user's TZ), different results per timezone",
+          "Snap-to times like @d or @mon, different results per timezone"
+        ],
+        "best_practice": "When exact timezone consistency is required, specify time based on the timezone where the Splunk indexer resides."
+      }
+    },
+
+    "sort_and_order": {
+      "lexicographical_order": {
+        "description": "Default sort order used by ORDER BY, sort, search, and timechart commands. Based on UTF-8 / ASCII encoding.",
+        "rules": [
+          "Numbers are sorted BEFORE letters, based on the first digit (not numeric value)",
+          "Uppercase letters are sorted BEFORE lowercase letters",
+          "Symbols vary, some sort before numbers, others before or after letters"
+        ],
+        "number_sort_warning": "Numbers are sorted lexicographically (by first digit), NOT numerically. Example: 9 sorts after 100 because '9' > '1'.",
+        "number_example": {
+          "unsorted": ["10", "9", "70", "100"],
+          "lexicographic": ["10", "100", "70", "9"]
+        },
+        "case_example": {
+          "unsorted": [
+            "SF-01",
+            "pz-05",
+            "BS-09",
+            "MB-07",
+            "DC-02",
+            "PZ-05",
+            "mb-07"
+          ],
+          "lexicographic": [
+            "BS-09",
+            "DC-02",
+            "MB-07",
+            "PZ-05",
+            "SF-01",
+            "mb-07",
+            "pz-05"
+          ],
+          "note": "Uppercase IDs sort before lowercase IDs"
+        },
+        "commands_using_lex_order": [
+          "ORDER BY (from command)",
+          "sort",
+          "search",
+          "timechart"
+        ],
+        "custom_sort": "You can override lexicographical order with custom sort logic using the sort command."
+      }
+    },
+
+    "wildcards_quotes_escape": {
+      "wildcards": {
+        "description": "Match partial string values. Which wildcard to use depends on the command.",
+        "wildcard_by_context": [
+          {
+            "context": "where command and WHERE clause",
+            "wildcard": "LIKE function with % (multiple chars) or _ (single char)",
+            "example": "WHERE like(ipaddress, \"198.%\")  or  WHERE name LIKE \"Pete_\""
+          },
+          {
+            "context": "eval command",
+            "wildcard": "LIKE function with % (multiple chars) or _ (single char)",
+            "example": "| eval match = like(name, \"Pete%\")"
+          },
+          {
+            "context": "All other commands (search, SELECT field names, etc.)",
+            "wildcard": "Asterisk * (matches unlimited characters)",
+            "example": "search sourcetype=\"access_*\"  or  SELECT 'bytes*' FROM main"
+          }
+        ],
+        "quoting_requirement": "Wildcard strings must be enclosed in quotation marks.",
+        "best_practices": [
+          "Put wildcards at the END of a term for best performance",
+          "Use field-value pairs when possible: status=\"fail*\" not just fail*",
+          "Avoid wildcards in the MIDDLE of strings, causes inconsistent results with punctuation",
+          "Avoid wildcards at the BEGINNING (prefix wildcards), causes major performance issues",
+          "Avoid wildcard-only searches (* with no other criteria), retrieves everything"
+        ],
+        "wildcards_in_middle_warning": {
+          "problem": "productID=\"S*G01\" fails because terms like SC-MG-G01 are segmented into SC, MG, G01. No single segment starts with S and ends with G01.",
+          "solution": "Specify exact IDs or use a lookup table for large value sets"
+        },
+        "wildcards_with_punctuation": "Avoid using wildcards to skip over punctuation characters (/, ., -). Specify each string explicitly.",
+        "searching_for_asterisk": "Cannot search for * directly. Search for the surrounding term first, then: | where _raw=\"\\*78\" to narrow results.",
+        "examples": [
+          "search sourcetype=\"access_*\"",
+          "WHERE like(source, \"license%\")",
+          "| eval match = like(categoryId, \"S%\")",
+          "SELECT 'bytes*' FROM main"
+        ]
+      },
+
+      "quotation_marks": {
+        "single_quotes": {
+          "use_for": "Field names that contain special characters, spaces, dashes, wildcards, or numbers as the first character",
+          "examples": [
+            "'host*'      ← wildcard in field name",
+            "'Avg Usage'  ← space in field name (via AS alias)",
+            "'5minutes'   ← number as first character",
+            "'status-code' ← dash in field name",
+            "'sum(bytes)'  ← parentheses in field name",
+            "'max.size'   ← period in field name",
+            "'$currency'  ← special char as first character"
+          ]
+        },
+        "double_quotes": {
+          "use_for": "All string values in SPL2",
+          "flexible_syntax": "Because values require double quotes, field=value and \"value\"=field are both valid (except search command, which requires field on left).",
+          "examples": [
+            "WHERE user=\"ladron\"",
+            "WHERE \"purchase\"=action  ← flexible, value before field",
+            "WHERE sourcetype=\"access_*\"  ← wildcard in value",
+            "WHERE clientip=\"192.0.2.14\"  ← IP as string",
+            "earliest=\"10/5/2020:20:00:00\"  ← timestamp as string"
+          ]
+        },
+        "backticks": {
+          "use_for": "Search literals, one or more terms to match in event data. AND implied between terms.",
+          "examples": [
+            "WHERE `invalid user sshd[5258]`",
+            "WHERE `user \"ladron\" from 192.0.2.0/24`"
+          ]
+        },
+        "field_name_rules_summary": [
+          "Must start with a-z, A-Z, or _ to avoid single quotes",
+          "Any other starting character → single quotes required",
+          "Any non-alphanumeric/non-underscore character in name → single quotes required"
+        ]
+      },
+
+      "escape_characters": {
+        "escape_char": "\\  (backslash)",
+        "alternatives": [
+          "Search literals (`...`), no need to escape quoted strings inside",
+          "Raw string literals (@\"...\"), backslash not processed; only escape needed is \"\" for double quotes"
+        ],
+        "must_escape": [
+          {
+            "char_or_seq": "\"",
+            "escape": "\\\"",
+            "notes": "Double quote inside a string value"
+          },
+          {
+            "char_or_seq": "\\",
+            "escape": "\\\\",
+            "notes": "Backslash character"
+          },
+          {
+            "char_or_seq": "\\b",
+            "escape": "\\\\b",
+            "notes": "Backspace escape sequence"
+          },
+          {
+            "char_or_seq": "\\f",
+            "escape": "\\\\f",
+            "notes": "Form feed escape sequence"
+          },
+          {
+            "char_or_seq": "\\n",
+            "escape": "\\\\n",
+            "notes": "Newline escape sequence"
+          },
+          {
+            "char_or_seq": "\\r",
+            "escape": "\\\\r",
+            "notes": "Carriage return"
+          },
+          { "char_or_seq": "\\t", "escape": "\\\\t", "notes": "Horizontal tab" }
+        ],
+        "rules_by_data_type": {
+          "string_values": [
+            "Single quotes inside strings do NOT need escaping",
+            "Double quotes inside strings MUST be escaped: \\\"",
+            "Example: WHERE _raw=\"The user \\\"vpatel\\\" isn't authenticated.\""
+          ],
+          "field_names": [
+            "Single quote inside a field name MUST be escaped: \\'",
+            "Example: | eval 'Berlin\\'s values' = if(city=\"Berlin\", round(sales), null)"
+          ],
+          "search_literals": [
+            "Backtick inside a search literal MUST be escaped: \\`"
+          ]
+        },
+        "windows_path_example": {
+          "path": "C:\\windows\\temp",
+          "in_search": "WHERE path=\"C:\\\\windows\\\\temp\"",
+          "as_raw_string": "@\"C:\\windows\\temp\""
+        },
+        "json_with_quoted_values": {
+          "example": "WHERE 'quote' LIKE \"%\\\"To be%\"  ← searches for JSON text that starts with \\\"To be"
+        }
+      }
+    },
+
+    "event_segmentation": {
+      "overview": "When data is indexed, the indexer segments (tokenizes) event text. Segments affect how keywords and wildcards match at search time.",
+      "segmentation_levels": {
+        "major_breakers": {
+          "description": "Divide event text into large tokens",
+          "characters": [
+            "Space",
+            "Newline",
+            "Angle brackets < >",
+            "Square brackets [ ]",
+            "Parentheses ( )",
+            "Curly brackets { }",
+            "Exclamation point !",
+            "Question mark ?",
+            "Semicolon ;",
+            "Comma ,",
+            "Single quote '",
+            "Double quote \"",
+            "Ampersand &",
+            "Percent-encoded reserved chars (%21, %2526, etc.)"
+          ]
+        },
+        "minor_breakers": {
+          "description": "Further divide major-breaker tokens into smaller tokens",
+          "characters": [
+            "Period .",
+            "Forward slash /",
+            "Double backslash \\\\",
+            "Colon :",
+            "Equal sign =",
+            "AT symbol @",
+            "Hash/pound #",
+            "Dollar sign $",
+            "Percent %",
+            "Dash -",
+            "Underscore _"
+          ]
+        }
+      },
+      "example_segmentation": {
+        "raw_ip_segment": "91.205.189.15 is broken into: 91, 205, 189, 15, 91.205, 91.205.189, 91.205.189.15, 205.189, …",
+        "quote_impact": {
+          "with_quotes": "app=\"uat_staging-mgr\" → major segments: 'app=' and 'uat_staging-mgr'",
+          "without_quotes": "app=uat_staging-mgr → one major segment: 'app=uat_staging-mgr'"
+        }
+      },
+      "search_implications": [
+        "To search for an IP address, enclose in quotes: WHERE clientip=\"91.205.189.15\"",
+        "Wildcards in the middle of punctuated strings fail because segments don't span punctuation",
+        "productID=\"S*G01\" fails, no segment starts with S and ends with G01",
+        "Avoid wildcards in the middle or beginning of terms",
+        "To match punctuation, specify it explicitly rather than using wildcards"
+      ],
+      "best_practices": [
+        "Enclose values containing punctuation in double quotes",
+        "Avoid wildcards in the middle of terms",
+        "Avoid prefix wildcards (performance and consistency issues)",
+        "Prefer exact field-value pairs over raw keyword searches"
+      ]
+    },
+
+    "comments": {
+      "overview": "SPL2 supports two comment styles: block comments and line comments. Comments are ignored during search execution.",
+      "block_comments": {
+        "syntax": "/* comment text */",
+        "description": "Can span multiple lines. Can appear inline within a search pipeline.",
+        "limitation": "Block comments cannot be used in any portion of the search that uses the search command.",
+        "examples": [
+          "| eval bytes = k * 1024 /* k contains kbytes */ | stats sum(bytes) BY host",
+          "/* This is a multi-line comment.\n   Explains the whole search. */\n| FROM index=mydataset WHERE source=usgs\n| eval Description=case(depth<=70, \"Shallow\", depth>70 AND depth<=300, \"Mid\", depth>300, \"Deep\")\n| stats count(), min(mag), max(mag) BY Description"
+        ]
+      },
+      "line_comments": {
+        "syntax": "// comment text",
+        "description": "Comment from // to end of line. Can be placed within any SPL2 command.",
+        "examples": [
+          "| eval bytes = k * 1024 // the k field contains kilobytes\n| stats sum(bytes) by host",
+          "| stats count() by $field // COUNTS EVENTS, ORGANIZED BY $FIELD\n| sort -count           // SORTS IN DESCENDING ORDER\n| head $limit           // RETURNS TOP N RESULTS"
+        ]
+      },
+      "keyboard_shortcut_line_comment": {
+        "windows_linux": "Ctrl + /",
+        "macos": "Command + /"
+      },
+      "documentation_comments": {
+        "syntax": "/** ... */",
+        "description": "Special block comment for custom functions. Appears as hover documentation in UIs.",
+        "tags": {
+          "@param": "@param $name - Description",
+          "@example": "Followed by description and ```spl code block ```"
+        },
+        "placement": "Must appear immediately before the function definition."
+      },
+      "troubleshooting_use_case": {
+        "description": "Comment out parts of a pipeline to isolate problems.",
+        "example": "| FROM main WHERE ipaddress LIKE \"198.%\" // | stats sum(bytes) BY hosts\n// Commented out stats to verify field name is 'host' not 'hosts'"
+      }
+    }
+  }
+}

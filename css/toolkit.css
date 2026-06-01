@@ -1,0 +1,419 @@
+/* ============================================================
+   SPL Forge, Shared chrome
+
+   Three themes, selected via the data-theme attribute on <html>:
+     • (no attr)            → Catppuccin Mocha (default)
+     • [data-theme="dark"]  → Dark (muted slate)
+     • [data-theme="light"] → Light (off-white paper)
+
+   Theme tokens defined here are the source of truth. Other CSS files
+   (editor.css) alias from these tokens, never hardcode hex.
+   ============================================================ */
+
+/* color-scheme tells the browser to render native form controls
+   (datetime-local picker, default scrollbars, autofill) in dark or
+   light variant so they don't flashbang against the themed chrome. */
+:root { color-scheme: dark; }
+[data-theme="dark"]  { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+
+:root {
+  --base:     #1e1e2e;
+  --mantle:   #181825;
+  --crust:    #11111b;
+  --text:     #cdd6f4;
+  --subtext1: #bac2de;
+  --subtext0: #a6adc8;
+  --overlay2: #9399b2;
+  --overlay1: #7f849c;
+  --overlay0: #6c7086;
+  --surface2: #585b70;
+  --surface1: #45475a;
+  --surface0: #313244;
+  --mauve:    #cba6f7;
+  --red:      #f38ba8;
+  --maroon:   #eba0ac;
+  --peach:    #fab387;
+  --yellow:   #f9e2af;
+  --green:    #a6e3a1;
+  --teal:     #94e2d5;
+  --sky:      #89dceb;
+  --sapphire: #74c7ec;
+  --blue:     #89b4fa;
+  --lavender: #b4befe;
+
+  --sidebar-w: 240px;
+  --topbar-h:  52px;
+  --mono: 'JetBrains Mono', 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+[data-theme="dark"] {
+  --base:     #0f1014;
+  --mantle:   #15161c;
+  --crust:    #0a0b10;
+  --surface0: #1a1b23;
+  --surface1: #262733;
+  --surface2: #3a3b4a;
+  --overlay0: #5a5a66;
+  --overlay1: #7a8294;
+  --overlay2: #9aa2b4;
+  --subtext0: #9395a0;
+  --subtext1: #c5c7cf;
+  --text:     #e4e4e8;
+  --mauve:    #7C3AED;
+  --red:      #e06c6c;
+  --maroon:   #a6696e;
+  --peach:    #FB923C;
+  --yellow:   #EAB308;
+  --green:    #68c28b;
+  --teal:     #3ccfa0;
+  --sky:      #5fb0bd;
+  --sapphire: #4f98a3;
+  --blue:     #4f98a3;
+  --lavender: #7C3AED;
+}
+
+[data-theme="light"] {
+  --base:     #F8F9FB;
+  --mantle:   #F1F3F6;
+  --crust:    #E4E7ED;
+  --surface0: #EAECF0;
+  --surface1: #DDE1E8;
+  --surface2: #C8CDD8;
+  --overlay0: #9BA3B0;
+  --overlay1: #6b7280;
+  --overlay2: #4b5563;
+  --subtext0: #6B7280;
+  --subtext1: #3A3F4A;
+  --text:     #111318;
+  --mauve:    #5b3a87;
+  --red:      #DC2626;
+  --maroon:   #8a3640;
+  --peach:    #a15a2a;
+  --yellow:   #D97706;
+  --green:    #16A34A;
+  --teal:     #2c7a6e;
+  --sky:      #1D4ED8;
+  --sapphire: #2563EB;
+  --blue:     #2c5282;
+  --lavender: #5a6aa0;
+}
+
+html, body, * { font-variant-emoji: text; }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* Themed scrollbars. Firefox first (scrollbar-color), then WebKit/Blink
+   pseudo-elements. Tokens come from the active theme's palette so
+   scrollbars stay invisible-by-design rather than fighting the chrome. */
+* {
+  scrollbar-color: var(--surface1) var(--mantle);
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--mantle); }
+*::-webkit-scrollbar-thumb {
+  background: var(--surface1);
+  border-radius: 5px;
+  border: 2px solid var(--mantle);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--surface2); }
+*::-webkit-scrollbar-corner { background: var(--mantle); }
+html { font-size: 16px; height: 100%; overflow: hidden; }
+body {
+  font-family: var(--sans);
+  background: var(--base);
+  color: var(--text);
+  height: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app { display: flex; height: 100%; }
+
+/* --- Sidebar --- */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--mantle);
+  border-right: 1px solid var(--surface0);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+/* Brand row height pinned to --topbar-h so its border-bottom aligns
+   with the topbar's border-bottom on the right. */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--topbar-h);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--surface0);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+/* Brand icon: quiet container with a sapphire-stroked glyph. The glyph
+   carries the brand mark; the title text is the primary read. */
+.brand-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface0);
+  border: 1px solid var(--surface1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.brand-icon > svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--sapphire);
+  fill: none;
+}
+.sidebar-brand:hover { background: var(--surface0); }
+.sidebar-brand:hover .brand-title { color: var(--sapphire); }
+.brand-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--subtext0);
+  letter-spacing: 0.5px;
+}
+
+.nav-section-label {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--subtext0);
+  padding: 12px 16px 4px;
+}
+.nav-links { list-style: none; }
+.nav-links li a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  color: var(--subtext0);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.nav-links li a:hover {
+  background: var(--surface0);
+  color: var(--text);
+}
+/* Soft active state, border + bold + accent text, no background fill. */
+.nav-links li a.active {
+  background: transparent;
+  color: var(--sapphire);
+  border-left-color: var(--sapphire);
+  font-weight: 600;
+}
+.nav-icon {
+  width: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.nav-icon > svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+}
+/* Footer height pinned to match the docs-pane header strip on the right
+   so the bottom of the sidebar lines up cleanly with the bottom of the
+   editor area. Any drift here is immediately visible across the split. */
+.sidebar-footer {
+  height: 48px;
+  padding: 0 16px;
+  border-top: 1px solid var(--surface0);
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-footer-text {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--subtext0);
+  text-align: center;
+}
+
+/* --- Main --- */
+.main {
+  flex: 1 1 auto;
+  margin-left: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.topbar {
+  height: var(--topbar-h);
+  flex-shrink: 0;
+  background: var(--mantle);
+  border-bottom: 1px solid var(--surface0);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  z-index: 50;
+}
+.topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.topbar-extras { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--surface1);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--subtext0);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.icon-btn:hover {
+  color: var(--text);
+  border-color: var(--surface2);
+}
+.icon-btn > svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
+
+.theme-switcher {
+  display: inline-flex;
+  border: 1px solid var(--surface1);
+  border-radius: 6px;
+  padding: 2px;
+  background: var(--base);
+}
+.theme-switcher button {
+  background: transparent;
+  border: none;
+  color: var(--subtext0);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.theme-switcher button:hover { color: var(--text); }
+.theme-switcher button.active {
+  background: var(--surface0);
+  color: var(--sapphire);
+}
+
+/* Page content scroller. Editor view fills with no scroll; docs panel scrolls. */
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--surface1);
+  border-radius: 6px;
+  background: var(--surface0);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:hover {
+  background: var(--surface1);
+  border-color: var(--surface2);
+}
+.btn-primary {
+  background: var(--sapphire);
+  color: var(--crust);
+  border-color: var(--sapphire);
+}
+.btn-primary:hover { opacity: 0.9; }
+.btn-ghost {
+  background: transparent;
+  color: var(--subtext0);
+}
+.btn-ghost:hover { color: var(--text); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* --- Toast --- */
+.toast {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-12px);
+  background: var(--surface0);
+  border: 1px solid var(--surface1);
+  color: var(--text);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 200ms;
+  z-index: 1000;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.toast.success { border-color: var(--green); }
+.toast.error { border-color: var(--red); }
+
+/* --- Mobile (sidebar collapses) --- */
+@media (max-width: 880px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .menu-toggle { display: inline-flex; }
+}
+.menu-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px;
+  margin-right: 4px;
+}
+.menu-toggle > svg { width: 20px; height: 20px; stroke: currentColor; fill: none; }

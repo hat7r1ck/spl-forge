@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="js/theme-boot.js"></script>
+  <title>SPL Forge, Splunk syntax editor</title>
+  <link rel="stylesheet" href="css/toolkit.css">
+  <link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar" id="sidebar">
+    <a href="#" class="sidebar-brand" aria-label="SPL Forge home" onclick="resetEditor(event)" data-tooltip="Reset editor">
+      <div class="brand-icon">
+        <!-- Code braces. Reads as "syntax / structured code" universally,
+             distinct from the prompt-arrow used in the Search SPL nav and
+             the chevron-pair used in the Dashboard XML nav. (Earlier
+             attempt was a hammer for the forge metaphor; visually too
+             phallic at 18px.) -->
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-4a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg>
+      </div>
+      <div>
+        <div class="brand-title">SPL Forge</div>
+        <div class="brand-subtitle">Syntax editor</div>
+      </div>
+    </a>
+
+    <div class="nav-section-label">Mode</div>
+    <ul class="nav-links" id="modeNav">
+      <li><a href="#spl" data-mode="spl" class="active">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
+        Search SPL
+      </a></li>
+      <li><a href="#xml" data-mode="xml">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+        Dashboard XML
+      </a></li>
+    </ul>
+
+    <!-- One exception to the sidebar=nav rule: "Insert time…" is a
+         heavyweight tool (opens a popover with chips + datetime picker
+         + format radio), not a one-click action. Placing it here keeps
+         the top app-bar tight and makes the affordance more discoverable
+         for newer users. SPL mode only, hidden in XML. -->
+    <div class="nav-section-label" id="splOnlyEditorSection">Editor</div>
+    <ul class="nav-links" id="splOnlyEditorList">
+      <li><a href="#" id="actInsertTime" data-tooltip="Insert earliest=/latest= with relative or absolute time">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        Insert time…
+      </a></li>
+    </ul>
+
+    <!-- Reference search lives in the sidebar so its dropdown can fly out
+         to the right (into the editor area) instead of opening downward
+         off-screen when the docs pane is collapsed. Mirror of the Insert
+         time placement pattern. -->
+    <div class="nav-section-label">Reference</div>
+    <div class="sidebar-ref-wrap">
+      <div class="ref-combo" id="refCombo">
+        <input type="text" id="refComboInput" class="ref-combo-input"
+               placeholder="Search docs… (stats, earliest, regex)"
+               autocomplete="off" spellcheck="false"
+               role="combobox" aria-autocomplete="list" aria-controls="refComboList" aria-expanded="false">
+        <button type="button" class="ref-combo-toggle" id="refComboToggle" aria-label="Open reference list">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="ref-combo-list" id="refComboList" role="listbox" hidden></div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-text">Splunk syntax editor</div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title" id="topbarTitle">Search SPL</span>
+
+      <div class="topbar-extras">
+        <div class="theme-switcher" role="tablist" aria-label="Theme">
+          <button data-theme-set="catppuccin" class="active" title="Catppuccin Mocha">Mocha</button>
+          <button data-theme-set="dark" title="Dark theme">Dark</button>
+          <button data-theme-set="light" title="Light theme">Light</button>
+        </div>
+        <a class="icon-btn" href="https://github.com/hat7r1ck/spl-forge" target="_blank" rel="noopener" aria-label="View source on GitHub" title="View source on GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1-.02-1.97-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.92 10.92 0 0 1 5.74 0c2.18-1.49 3.14-1.18 3.14-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.41-5.27 5.69.41.36.78 1.07.78 2.16 0 1.56-.01 2.81-.01 3.19 0 .31.21.68.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+        </a>
+      </div>
+    </header>
+
+    <main class="content" id="viewRoot">
+      <!-- App-bar: contextual toolbar for the current mode. Mode picker
+           lives in the sidebar (sidebar = navigation, app-bar = actions).
+           Groups are separated by a divider so the eye reads them as
+           distinct intents: format → copy → utility. -->
+      <div class="app-bar" id="appBar">
+        <div class="app-bar-group" id="splOnlyTools">
+          <button class="btn btn-ghost btn-sm" id="appAutoformat" title="Cmd/Ctrl + |">Autoformat</button>
+        </div>
+        <div class="app-bar-divider" id="splOnlyDivider"></div>
+        <div class="app-bar-group">
+          <button class="btn btn-sm" id="appCopyRich">Copy rich</button>
+          <button class="btn btn-sm" id="appCopyHtml">Copy HTML</button>
+          <button class="btn btn-sm" id="appCopyText">Copy text</button>
+        </div>
+        <div class="app-bar-divider"></div>
+        <div class="app-bar-group">
+          <button class="btn btn-ghost btn-sm" id="appDecode" title="Decodes URL from clipboard (appends) or from the editor (replaces). Accepts Splunk q= URLs and SPL Forge share links.">Decode URL</button>
+          <button class="btn btn-ghost btn-sm" id="appClear">Clear</button>
+          <button class="btn btn-sm" id="appShare">Share link</button>
+        </div>
+      </div>
+
+      <!-- Time picker popover. Hidden until "Insert time…" clicked.
+           Anchored under the button via JS. All inserts go through
+           Monaco editor.executeEdits at the cursor position, so the
+           user's surrounding work is preserved. -->
+      <div class="time-popover" id="timePopover" hidden>
+        <div class="time-popover-header">
+          <span>Insert time modifier</span>
+          <div style="display:flex;gap:4px;align-items:center">
+            <button class="time-popover-help" id="timePopoverHelp" aria-label="How to use" title="How to use">?</button>
+            <button class="time-popover-close" id="timePopoverClose" aria-label="Close">×</button>
+          </div>
+        </div>
+
+        <!-- Help mini-section, toggled by the ? button. Closed by default. -->
+        <div class="time-popover-help-body" id="timePopoverHelpBody" hidden>
+          <ul>
+            <li>Click a <strong>chip</strong> (e.g. <code>-1h</code>, <code>@d</code>) to pick a relative time.</li>
+            <li>Or pick an <strong>absolute date/time</strong> and choose an output format.</li>
+            <li>Hit <strong>Insert as earliest=</strong> or <strong>latest=</strong> to drop it at your cursor.</li>
+            <li>Splunk and ISO formats are auto-quoted (string literals); epoch is left bare (number).</li>
+            <li>Your surrounding query text is preserved, no overwrite.</li>
+          </ul>
+        </div>
+
+        <div class="time-popover-section">
+          <div class="time-popover-label">Quick relative</div>
+          <div class="time-chip-row" id="timeChipsRelative">
+            <button data-rel="-15m">-15m</button>
+            <button data-rel="-1h">-1h</button>
+            <button data-rel="-4h">-4h</button>
+            <button data-rel="-24h">-24h</button>
+            <button data-rel="-7d">-7d</button>
+            <button data-rel="-30d">-30d</button>
+          </div>
+          <div class="time-popover-label" style="margin-top:8px">Snap-to</div>
+          <div class="time-chip-row" id="timeChipsSnap">
+            <button data-rel="-1d@d">-1d@d</button>
+            <button data-rel="@d">@d</button>
+            <button data-rel="@h">@h</button>
+            <button data-rel="@w0">@w0</button>
+            <button data-rel="@mon">@mon</button>
+            <button data-rel="now()">now()</button>
+          </div>
+        </div>
+
+        <div class="time-popover-divider"></div>
+
+        <div class="time-popover-section">
+          <div class="time-popover-label">Absolute date and time</div>
+          <input type="datetime-local" id="timePickerInput" class="time-popover-input" step="1">
+          <div class="time-popover-label" style="margin-top:10px">Output format</div>
+          <div class="time-radio-row" id="timeFormat">
+            <label><input type="radio" name="tfmt" value="splunk" checked> Splunk <code>MM/DD/YYYY:HH:MM:SS</code></label>
+            <label><input type="radio" name="tfmt" value="iso"> ISO 8601</label>
+            <label><input type="radio" name="tfmt" value="epoch"> UNIX epoch</label>
+          </div>
+        </div>
+
+        <div class="time-popover-footer">
+          <button class="btn btn-sm" id="timeInsertEarliest">Insert earliest=</button>
+          <button class="btn btn-sm" id="timeInsertLatest">Insert latest=</button>
+          <button class="btn btn-ghost btn-sm" id="timeInsertRaw">Insert raw</button>
+        </div>
+      </div>
+
+      <div class="editor-shell">
+        <div class="editor-pane" id="editorPane">
+          <div id="monaco-host"></div>
+          <div class="editor-loading" id="editorLoading">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <section class="docs-pane" id="docsPane" aria-label="Command documentation">
+          <div class="docs-resize" id="docsResize"></div>
+          <div class="docs-header">
+            <label>Reference:</label>
+            <!-- Search lives in the sidebar now. This strip just shows
+                 what's currently loaded + the collapse toggle. -->
+            <span class="docs-current" id="docsCurrent">search</span>
+            <button class="docs-toggle" id="docsToggle" aria-expanded="false" aria-controls="docsBody">
+              <span class="docs-toggle-label">Show reference</span>
+              <svg class="docs-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+          <div class="docs-body" id="docsBody"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/monaco-editor/min/vs/loader.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

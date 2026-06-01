@@ -1,0 +1,606 @@
+/* ============================================================
+   SPL Forge, Editor surface
+   Monaco wrapper, app-bar, docs panel. All color tokens come
+   from css/toolkit.css. No hardcoded hex here.
+   ============================================================ */
+
+/* App bar, mode + actions row above the editor */
+.app-bar {
+  background: var(--mantle);
+  border-bottom: 1px solid var(--surface0);
+  padding: 8px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.app-bar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.app-bar-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--subtext0);
+  margin-right: 4px;
+}
+.app-bar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--surface0);
+  margin: 0 4px;
+}
+
+/* Mode selector, tab-style pill group */
+.mode-tabs {
+  display: inline-flex;
+  border: 1px solid var(--surface1);
+  border-radius: 6px;
+  padding: 2px;
+  background: var(--base);
+}
+.mode-tabs button {
+  background: transparent;
+  border: none;
+  color: var(--subtext0);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-tabs button:hover { color: var(--text); }
+.mode-tabs button.active {
+  background: var(--surface0);
+  color: var(--sapphire);
+}
+
+/* Editor + docs split */
+.editor-shell {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editor-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--crust);
+  position: relative;
+}
+
+.editor-pane #monaco-host {
+  position: absolute;
+  inset: 0;
+}
+
+/* Docs pane (SPL only). Collapsed by default, header always visible
+   so the user can pick a command, but the body folds away until they
+   ask for it. Resize handle only meaningful when open. */
+.docs-pane {
+  border-top: 1px solid var(--surface0);
+  background: var(--mantle);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+.docs-pane.hidden { display: none; }
+
+/* Open height is driven by --docs-h (set by the resize drag). The custom
+   property is read ONLY here, in the .open rule, so when .open is removed
+   the pane collapses to its header strip regardless of any leftover value.
+   No inline flex-basis to leak into the closed state. Falls back to 280px
+   before the user has dragged. */
+.docs-pane.open {
+  flex-basis: var(--docs-h, 280px);
+  min-height: 120px;
+  max-height: 70vh;
+}
+.docs-pane:not(.open) .docs-body,
+.docs-pane:not(.open) .docs-resize {
+  display: none;
+}
+
+.docs-resize {
+  height: 6px;
+  background: var(--surface0);
+  cursor: row-resize;
+  flex-shrink: 0;
+  position: relative;
+}
+.docs-resize::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 2px;
+  background: var(--overlay0);
+  border-radius: 1px;
+}
+
+.docs-header {
+  padding: 10px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--surface0);
+  flex-shrink: 0;
+}
+.docs-pane:not(.open) .docs-header { border-bottom: none; }
+.docs-header label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--subtext0);
+}
+/* Read-only display of currently-loaded reference entry. Sidebar search
+   drives the actual selection now; this strip just confirms what's in
+   the body below. */
+.docs-current {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sapphire);
+  background: var(--surface0);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: var(--mono);
+}
+.docs-toggle {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--surface1);
+  color: var(--subtext0);
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.docs-toggle:hover {
+  color: var(--text);
+  border-color: var(--surface2);
+}
+.docs-toggle .docs-toggle-chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.18s ease;
+}
+.docs-pane.open .docs-toggle .docs-toggle-chevron { transform: rotate(180deg); }
+/* Sidebar reference search wrapper. Padded so the input lines up with
+   the nav rows above it without inheriting the link list's left-border
+   gutter. */
+.sidebar-ref-wrap {
+  padding: 4px 14px 12px;
+}
+
+/* Searchable reference combobox, replaces the original native select.
+   Lives in the sidebar. List popover floats out to the right (into the
+   editor area) via fixed positioning set in JS, so it never collides
+   with the editor bottom or the collapsed docs panel. */
+.ref-combo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.ref-combo-input {
+  flex: 1 1 auto;
+  background: var(--surface0);
+  border: 1px solid var(--surface1);
+  color: var(--text);
+  padding: 5px 32px 5px 10px;
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  width: 100%;
+}
+.ref-combo-input::placeholder {
+  color: var(--subtext0);
+  font-weight: 500;
+}
+.ref-combo-input:focus { border-color: var(--sapphire); }
+
+.ref-combo-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--subtext0);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ref-combo-toggle svg { width: 12px; height: 12px; stroke: currentColor; fill: none; }
+.ref-combo-toggle:hover { color: var(--text); }
+
+.ref-combo-list {
+  position: fixed;          /* JS sets top/left to anchor right of sidebar */
+  background: var(--mantle);
+  border: 1px solid var(--surface1);
+  border-radius: 8px;
+  width: 320px;
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.32);
+  z-index: 250;
+  padding: 4px 0;
+}
+.ref-combo-list[hidden] { display: none; }
+
+/* Sticky category header. Background was var(--mantle), same as the
+   list, so items scrolling under it bled through. Now uses surface0
+   (one level up) for an opaque seal plus sapphire text for hierarchy.
+   Top/bottom borders close the visual band so items don't peek through
+   above/below as they scroll past. */
+.ref-combo-cat {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--sapphire);
+  font-weight: 700;
+  padding: 6px 12px;
+  position: sticky;
+  top: 0;
+  background: var(--surface0);
+  border-top: 1px solid var(--surface1);
+  border-bottom: 1px solid var(--surface1);
+  z-index: 2;
+}
+/* First category header has no top border, it sits flush against the
+   list's own border. Avoids a double line. */
+.ref-combo-cat:first-child { border-top: none; }
+.ref-combo-item {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--subtext1);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  font-family: var(--sans);
+}
+.ref-combo-item:hover,
+.ref-combo-item.hovered {
+  background: var(--surface0);
+  color: var(--text);
+}
+.ref-combo-item.selected {
+  color: var(--sapphire);
+  border-left-color: var(--sapphire);
+  font-weight: 600;
+}
+.ref-combo-empty {
+  padding: 14px 16px;
+  color: var(--subtext0);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.docs-body {
+  padding: 12px 20px 20px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--subtext1);
+}
+.docs-body h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--subtext0);
+  margin-top: 14px;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.docs-body p { margin-bottom: 8px; max-width: 880px; }
+.docs-body a {
+  color: var(--sapphire);
+  text-decoration: none;
+}
+.docs-body a:hover { text-decoration: underline; }
+.docs-body .doc-pre {
+  display: block;
+  background: var(--crust);
+  border: 1px solid var(--surface0);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--text);
+}
+.docs-body .doc-related-label {
+  color: var(--subtext0);
+  margin-right: 6px;
+}
+.docs-body .doc-ex-comment {
+  font-weight: 400;
+  color: var(--subtext0);
+}
+
+/* Reference-panel additions for SPL2 topics.
+   Lists, tables, and callouts have to read cleanly in all three themes,
+   so spacing and tokens stay token-driven. */
+.docs-body .doc-list {
+  padding-left: 18px;
+  margin: 6px 0 12px;
+  list-style: disc;
+}
+.docs-body .doc-list li {
+  margin: 4px 0;
+  line-height: 1.45;
+}
+.docs-body .doc-list li strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.docs-body .doc-table {
+  width: 100%;
+  max-width: 880px;
+  border-collapse: collapse;
+  margin: 8px 0 14px;
+  font-size: 12.5px;
+}
+.docs-body .doc-table th,
+.docs-body .doc-table td {
+  border: 1px solid var(--surface0);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.docs-body .doc-table th {
+  background: var(--surface0);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.docs-body .doc-table td:first-child {
+  font-family: var(--mono);
+  color: var(--sapphire);
+  white-space: nowrap;
+}
+
+.docs-body .doc-callout {
+  border-left: 3px solid var(--surface2);
+  background: var(--surface0);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  margin: 10px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.docs-body .doc-callout--note { border-left-color: var(--sapphire); }
+.docs-body .doc-callout--warn { border-left-color: var(--peach); }
+
+/* ------------------------------------------------------------
+   Time picker popover
+   Anchored under the "Insert time…" button. Native datetime-local
+   input gives us the browser's picker for free; the chips above
+   handle the common-case relative shortcuts in one click. All
+   inserts route through Monaco executeEdits at the cursor.
+   ------------------------------------------------------------ */
+.time-popover {
+  position: absolute;
+  z-index: 200;
+  background: var(--mantle);
+  border: 1px solid var(--surface1);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+  width: 360px;
+  padding: 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--text);
+}
+.time-popover[hidden] { display: none; }
+
+.time-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--surface0);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--subtext0);
+}
+.time-popover-close,
+.time-popover-help {
+  background: transparent;
+  border: none;
+  color: var(--subtext0);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--sans);
+  font-weight: 700;
+}
+.time-popover-close { font-size: 18px; padding: 2px 6px; }
+.time-popover-close:hover,
+.time-popover-help:hover { background: var(--surface0); color: var(--text); }
+.time-popover-help[aria-pressed="true"] {
+  background: var(--surface0);
+  color: var(--sapphire);
+}
+
+.time-popover-help-body {
+  padding: 10px 14px 12px;
+  background: var(--surface0);
+  border-bottom: 1px solid var(--surface0);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--subtext1);
+}
+.time-popover-help-body[hidden] { display: none; }
+.time-popover-help-body ul {
+  list-style: disc;
+  padding-left: 18px;
+  margin: 0;
+}
+.time-popover-help-body li { margin: 3px 0; }
+.time-popover-help-body code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--sapphire);
+  background: var(--mantle);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.time-popover-help-body strong { color: var(--text); font-weight: 700; }
+
+.time-popover-section { padding: 12px 14px; }
+.time-popover-divider { height: 1px; background: var(--surface0); }
+.time-popover-label {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--subtext0);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.time-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.time-chip-row button {
+  background: var(--surface0);
+  border: 1px solid var(--surface1);
+  color: var(--text);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.time-chip-row button:hover {
+  border-color: var(--sapphire);
+  color: var(--sapphire);
+}
+
+.time-popover-input {
+  width: 100%;
+  background: var(--base);
+  border: 1px solid var(--surface1);
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+}
+.time-popover-input:focus { border-color: var(--sapphire); }
+/* Force the datetime-local indicator to inherit theme color in light mode */
+.time-popover-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+  cursor: pointer;
+}
+[data-theme="light"] .time-popover-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.3);
+}
+
+.time-radio-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+.time-radio-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--subtext1);
+  cursor: pointer;
+}
+.time-radio-row input[type="radio"] {
+  accent-color: var(--sapphire);
+}
+.time-radio-row code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--sapphire);
+  background: var(--surface0);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.time-popover-footer {
+  padding: 12px 14px;
+  border-top: 1px solid var(--surface0);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Empty state for non-SPL modes */
+.docs-pane.simple-empty .docs-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--subtext0);
+  font-style: italic;
+  font-size: 13px;
+}
+
+/* Spinner shown until Monaco loads */
+.editor-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--crust);
+  z-index: 10;
+}
+.editor-loading.hidden { display: none; }
+.editor-loading .dot {
+  width: 12px;
+  height: 12px;
+  background: var(--sapphire);
+  border-radius: 50%;
+  margin: 0 4px;
+  animation: bounce 1.2s infinite ease-in-out both;
+}
+.editor-loading .dot:nth-child(1) { animation-delay: -0.32s; }
+.editor-loading .dot:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+/* Monaco override, force its wrapper to fill */
+.monaco-editor, .monaco-editor-background, .monaco-editor .inputarea.ime-input {
+  background: var(--crust) !important;
+}

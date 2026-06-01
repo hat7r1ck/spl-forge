@@ -1,0 +1,1066 @@
+{
+  "abstract": {
+    "description": "Shorten each event's text down to a short summary, scored by how many search terms show up and how close together they are. Good for skimming long events.",
+    "syntax": "abstract [maxterms=<int>] [maxlines=<int>]",
+    "example1": "... | abstract maxlines=5",
+    "comment1": "Trim every event to its 5 most relevant lines.",
+    "related": "highlight"
+  },
+  "accum": {
+    "description": "Keep a running total of a numeric field down the result set. Write it back to the same field or a new one.",
+    "syntax": "accum <field> [AS <newfield>]",
+    "example1": "... | accum count AS running_total",
+    "comment1": "Cumulative sum of count.",
+    "related": "autoregress, delta, streamstats, trendline"
+  },
+  "addcoltotals": {
+    "description": "Add one summary row at the bottom that sums each numeric column. Like the totals row at the foot of a spreadsheet.",
+    "syntax": "addcoltotals [labelfield=<field>] [label=<string>] [<field> ...]",
+    "example1": "... | stats sum(bytes) by host | addcoltotals labelfield=host label=TOTAL",
+    "comment1": "Grand total row across all hosts.",
+    "related": "addtotals, stats"
+  },
+  "addinfo": {
+    "description": "Add search metadata to every event: the time bounds, the search ID, and when it ran.",
+    "syntax": "addinfo",
+    "example1": "... | addinfo",
+    "comment1": "Adds info_min_time, info_max_time, and friends.",
+    "related": "search"
+  },
+  "addtotals": {
+    "description": "Sum numeric fields across each row and drop the total in a new field. Flip col=t and it sums down the columns instead.",
+    "syntax": "addtotals [row=<bool>] [col=<bool>] [fieldname=<field>] [<field> ...]",
+    "example1": "... | addtotals fieldname=total bytes_in bytes_out",
+    "comment1": "Per-row sum of in and out bytes.",
+    "related": "addcoltotals, stats"
+  },
+  "analyzefields": {
+    "description": "Given a class field, score how well every numeric field predicts it. Quick way to see which numbers track with a category.",
+    "syntax": "analyzefields classfield=<field>",
+    "example1": "... | analyzefields classfield=is_malicious",
+    "comment1": "Which numeric fields line up with the malicious flag.",
+    "related": "anomalousvalue"
+  },
+  "anomalies": {
+    "description": "Score each event on how unexpected it is compared to the ones before it, then keep the surprising ones.",
+    "syntax": "anomalies [threshold=<num>] [field=<field>]",
+    "example1": "... | anomalies threshold=0.05 field=bytes",
+    "comment1": "Flag events whose byte count breaks the pattern.",
+    "related": "anomalousvalue, cluster, kmeans, outlier"
+  },
+  "anomalousvalue": {
+    "description": "Find values that are rare or statistically weird across your results, and summarize what stood out.",
+    "syntax": "anomalousvalue [<options>] [<field> ...]",
+    "example1": "... | anomalousvalue action=filter pthresh=0.01",
+    "comment1": "Keep only the genuinely odd rows.",
+    "related": "analyzefields, anomalies, cluster, kmeans, outlier"
+  },
+  "anomalydetection": {
+    "description": "Spot anomalous events using probability or histogram methods. The newer, more flexible cousin of anomalies and anomalousvalue.",
+    "syntax": "anomalydetection [method=<histogram|zscore|iqr>] [action=<filter|annotate|summary>] [<field> ...]",
+    "example1": "... | anomalydetection method=zscore action=annotate",
+    "comment1": "Tag each row with an anomaly score.",
+    "related": "anomalies, anomalousvalue, outlier, cluster, kmeans"
+  },
+  "append": {
+    "description": "Run a subsearch and tack its rows onto the end of your results. Heads up: the subsearch is capped and runs to completion first, so keep it small.",
+    "syntax": "append [<options>] [ <subsearch> ]",
+    "example1": "index=web | stats count | append [ search index=db | stats count ]",
+    "comment1": "Web count, then db count stacked under it.",
+    "related": "appendcols, appendpipe, join, union, set"
+  },
+  "appendcols": {
+    "description": "Run a subsearch and glue its fields onto your rows side by side: row one to row one, row two to row two. Position-based, so order matters.",
+    "syntax": "appendcols [override=<bool>] [ <subsearch> ]",
+    "example1": "... | appendcols [ search ... | stats avg(bytes) ]",
+    "comment1": "Bolt the average onto each row.",
+    "related": "append, appendpipe, join"
+  },
+  "appendpipe": {
+    "description": "Run a sub-pipeline against the results so far and append what it produces. Handy for adding a subtotal without re-running the whole search.",
+    "syntax": "appendpipe [run_in_preview=<bool>] [ <subpipeline> ]",
+    "example1": "... | stats count by host | appendpipe [ stats sum(count) AS total ]",
+    "comment1": "Per-host counts plus a total row.",
+    "related": "append, appendcols, stats"
+  },
+  "archivebuckets": {
+    "description": "Roll frozen index buckets out to Hadoop storage. Admin plumbing for Hadoop Data Roll, not something you run day to day.",
+    "syntax": "archivebuckets [forcerun=<bool>] [retries=<int>]",
+    "example1": "| archivebuckets",
+    "comment1": "Kick off the archive job.",
+    "related": "dbinspect"
+  },
+  "arules": {
+    "description": "Find association rules between field values: when X shows up, how often does Y come with it. Market-basket style.",
+    "syntax": "arules [sup=<int>] [conf=<num>] <field> <field> ...",
+    "example1": "... | arules src_ip dest_port",
+    "comment1": "Which ports tend to show up together per source.",
+    "related": "associate, correlate, cofilter"
+  },
+  "associate": {
+    "description": "Surface fields whose values predict each other, ranked by how much knowing one cuts the uncertainty of the other.",
+    "syntax": "associate [<options>] [<field> ...]",
+    "example1": "... | associate",
+    "comment1": "Find the strongest field relationships.",
+    "related": "correlate, contingency, arules"
+  },
+  "audit": {
+    "description": "Pull the audit trail out of the local _audit index. Who searched what, config changes, that kind of thing.",
+    "syntax": "audit",
+    "example1": "| audit",
+    "comment1": "Recent audit-trail activity.",
+    "related": "metadata"
+  },
+  "autoregress": {
+    "description": "Copy earlier values forward into each row so you can compute moving averages or lag features by hand.",
+    "syntax": "autoregress <field> [AS <newfield>] [p=<int>[-<int>]]",
+    "example1": "... | autoregress count AS prev_count p=1",
+    "comment1": "Put the previous row's count alongside this one.",
+    "related": "accum, delta, streamstats, trendline"
+  },
+  "bin": {
+    "description": "Bucket continuous numbers (or time) into ranges. The chart and timechart commands call this under the hood; use it directly when you want control.",
+    "syntax": "bin [span=<span>] [bins=<int>] <field> [AS <newfield>]",
+    "example1": "... | bin span=5m _time | stats count by _time",
+    "comment1": "Group events into 5-minute buckets.",
+    "related": "chart, timechart"
+  },
+  "bucket": {
+    "description": "Alias of bin. Buckets continuous numbers or time into ranges. Same command, two names; bin is the more common spelling.",
+    "syntax": "bucket [span=<span>] [bins=<int>] <field> [AS <newfield>]",
+    "example1": "... | bucket span=1h _time | stats count by _time",
+    "comment1": "Hourly buckets, same as bin.",
+    "related": "bin, chart, timechart"
+  },
+  "bucketdir": {
+    "description": "Roll path-like values up to a higher level, like collapsing filenames into their parent directory, to keep result counts manageable.",
+    "syntax": "bucketdir pathfield=<field> sizefield=<field> [maxcount=<int>] [sep=<char>]",
+    "example1": "... | bucketdir pathfield=path sizefield=count maxcount=20",
+    "comment1": "Collapse deep paths into top directories.",
+    "related": "cluster, dedup"
+  },
+  "chart": {
+    "description": "Aggregate into a table built for charting: pick what to measure, then split it across rows with one field and columns with another (over X by Y).",
+    "syntax": "chart <agg>(<field>) [over <field>] [by <field>]",
+    "example1": "... | chart count over status by host",
+    "comment1": "Status down the rows, host across the columns.",
+    "related": "timechart, bin, sichart"
+  },
+  "cluster": {
+    "description": "Group events that look alike by text similarity. Great for collapsing noisy logs into a handful of patterns.",
+    "syntax": "cluster [t=<num>] [showcount=<bool>] [labelonly=<bool>]",
+    "example1": "... | cluster showcount=t | sort 0 -cluster_count",
+    "comment1": "Biggest log patterns first.",
+    "related": "anomalies, anomalousvalue, kmeans, outlier"
+  },
+  "cofilter": {
+    "description": "Count how often two field values turn up together. Simple co-occurrence tally between two fields.",
+    "syntax": "cofilter <field1> <field2>",
+    "example1": "... | cofilter user action",
+    "comment1": "How often each user did each action.",
+    "related": "associate, correlate, arules"
+  },
+  "collect": {
+    "description": "Write your results into a summary index so you can query the rolled-up data later instead of re-crunching raw events.",
+    "syntax": "collect index=<index> [source=<string>] [sourcetype=<string>]",
+    "example1": "... | stats count by host | collect index=summary_daily",
+    "comment1": "Stash daily host counts for fast reuse.",
+    "related": "mcollect, overlap, sistats"
+  },
+  "concurrency": {
+    "description": "Given a duration field, count how many events were running at the same time as each event. Good for overlap and load questions.",
+    "syntax": "concurrency duration=<field> [start=<field>] [output=<field>]",
+    "example1": "... | concurrency duration=elapsed",
+    "comment1": "How many requests overlapped each one.",
+    "related": "timechart"
+  },
+  "contingency": {
+    "description": "Build a two-way contingency table (a cross-tab) counting how often each pair of values from two fields shows up together.",
+    "syntax": "contingency [<options>] <field> <field>",
+    "example1": "... | contingency status method",
+    "comment1": "Counts for every status and method combo.",
+    "related": "associate, correlate"
+  },
+  "convert": {
+    "description": "Convert field values into numbers with functions like dur2sec, mstime, or ctime. The go-to for turning durations and timestamps into something you can do math on.",
+    "syntax": "convert <func>(<field>) [AS <newfield>] ...",
+    "example1": "... | convert dur2sec(duration) AS seconds",
+    "comment1": "Turn 00:01:30 into 90.",
+    "related": "eval"
+  },
+  "correlate": {
+    "description": "Measure how often fields co-occur across your results, giving a quick co-occurrence matrix between all the fields.",
+    "syntax": "correlate",
+    "example1": "... | correlate",
+    "comment1": "See which fields tend to appear together.",
+    "related": "associate, contingency"
+  },
+  "datamodel": {
+    "description": "Search or inspect a data model and its datasets directly. Pull back the model's structure or its accelerated data.",
+    "syntax": "datamodel [<model>] [<dataset>] [search|flat|acceleration_search]",
+    "example1": "| datamodel Network_Traffic All_Traffic search",
+    "comment1": "Search the Network Traffic model.",
+    "related": "from, pivot, tstats"
+  },
+  "dbinspect": {
+    "description": "Inspect the index buckets behind a Splunk index: their time ranges, sizes, and state. Useful for retention and storage questions.",
+    "syntax": "dbinspect index=<index> [span=<span>] [corruptonly=<bool>]",
+    "example1": "| dbinspect index=main",
+    "comment1": "Bucket layout for the main index.",
+    "related": "metadata"
+  },
+  "dedup": {
+    "description": "Drop duplicate rows, keeping the first N for each set of field values. Order decides which row survives, so sortby first if you care.",
+    "syntax": "dedup [<N>] <field> ... [sortby <field> ...]",
+    "example1": "... | dedup host",
+    "comment1": "One row per host.",
+    "related": "stats, uniq"
+  },
+  "delete": {
+    "description": "Mark matching events so they stop showing up in searches. It does not free disk and you cannot undo it, and you need the can_delete role. Handle with care.",
+    "syntax": "delete",
+    "example1": "index=test sourcetype=junk | delete",
+    "comment1": "Make those test events unsearchable for good.",
+    "related": "search"
+  },
+  "delta": {
+    "description": "Compute the difference between a field's value and the value in a nearby row. Quick deltas without a full streamstats.",
+    "syntax": "delta <field> [AS <newfield>] [p=<int>]",
+    "example1": "... | delta count AS change",
+    "comment1": "Row-over-row change in count.",
+    "related": "accum, autoregress, streamstats, trendline"
+  },
+  "diff": {
+    "description": "Show the line-by-line difference between two of your result rows, like diffing two files.",
+    "syntax": "diff [position1=<int>] [position2=<int>] [attribute=<field>]",
+    "example1": "... | diff position1=1 position2=2",
+    "comment1": "What changed between row 1 and row 2.",
+    "related": "set"
+  },
+  "erex": {
+    "description": "Give it a few example values and it writes the extraction regex for you. The lazy, effective way to pull a field when you do not want to hand-craft a pattern.",
+    "syntax": "erex <newfield> examples=<vals> [counterexamples=<vals>] [fromfield=<field>]",
+    "example1": "... | erex order_id examples=\"AB-1234, CD-5678\"",
+    "comment1": "Auto-build a regex from sample IDs.",
+    "related": "extract, rex, regex, multikv"
+  },
+  "eval": {
+    "description": "Build a new field from an expression. Math, string ops, conditionals, and multivalue functions are all fair game.",
+    "syntax": "eval <field> = <expression>",
+    "example1": "... | eval mb = bytes / 1024 / 1024",
+    "comment1": "Bytes to megabytes.",
+    "related": "where, fillnull, rex"
+  },
+  "eventcount": {
+    "description": "Quickly count events in one or more indexes without scanning the raw data. Fast, but index-level only.",
+    "syntax": "eventcount [index=<index>] [summarize=<bool>] [report_size=<bool>]",
+    "example1": "| eventcount index=*",
+    "comment1": "Event counts per index.",
+    "related": "metadata, tstats"
+  },
+  "eventstats": {
+    "description": "Compute stats like count or avg, then paste the result onto every original row instead of collapsing them. That last part is the whole point versus stats.",
+    "syntax": "eventstats <agg>(<field>) [AS <name>] ... [by <field> ...]",
+    "example1": "... | eventstats avg(bytes) AS avg_bytes by host",
+    "comment1": "Each row keeps its own data plus the host average.",
+    "related": "stats, streamstats"
+  },
+  "extract": {
+    "description": "Run field extraction on the fly, pulling key=value pairs out of raw text using your configured extractions or delimiters.",
+    "syntax": "extract [<options>] [kvdelim=<chars>] [pairdelim=<chars>]",
+    "example1": "... | extract pairdelim=\"&\" kvdelim=\"=\"",
+    "comment1": "Parse a query string into fields.",
+    "related": "kvform, multikv, rex, xmlkv"
+  },
+  "fieldformat": {
+    "description": "Change how a field is displayed without changing its underlying value, so sorting and math still work on the real number.",
+    "syntax": "fieldformat <field> = <expression>",
+    "example1": "... | fieldformat bytes = tostring(bytes, \"commas\")",
+    "comment1": "Show 1,048,576 but keep the raw number for math.",
+    "related": "eval, convert"
+  },
+  "fields": {
+    "description": "Keep or drop fields by name (use + to keep, - to drop). Trimming early with fields keeps a search lean.",
+    "syntax": "fields [+|-] <field> ...",
+    "example1": "... | fields host, status, bytes",
+    "comment1": "Carry only the three fields you need.",
+    "related": "table, rename"
+  },
+  "fieldsummary": {
+    "description": "Get a per-field summary across your results: distinct count, min, max, mean, and a sample of values. Great for sizing up unfamiliar data.",
+    "syntax": "fieldsummary [maxvals=<int>] [<field> ...]",
+    "example1": "... | fieldsummary maxvals=5",
+    "comment1": "Quick profile of every field.",
+    "related": "stats, anomalies"
+  },
+  "file": {
+    "description": "Read a file and treat its lines as events. Niche, mostly internal, rarely what you actually want over inputcsv or inputlookup.",
+    "syntax": "file <filename>",
+    "example1": "| file /tmp/sample.log",
+    "comment1": "Pull a raw file in as events.",
+    "related": "inputcsv"
+  },
+  "filldown": {
+    "description": "Fill null fields with the last non-null value seen above them. Like dragging a value down to fill the blanks in a column.",
+    "syntax": "filldown [<field> ...]",
+    "example1": "... | filldown user",
+    "comment1": "Carry the user value down into blank rows.",
+    "related": "fillnull, eval"
+  },
+  "fillnull": {
+    "description": "Swap nulls for a value (0 if you don't say). Name fields to target, or leave it open to hit them all. Unlike coalesce, it also fixes fields that are missing entirely, not just null.",
+    "syntax": "fillnull [value=<string>] [<field> ...]",
+    "example1": "... | fillnull value=\"N/A\" status",
+    "comment1": "Blank statuses become N/A.",
+    "related": "filldown, eval, nomv"
+  },
+  "findtypes": {
+    "description": "Suggest event types from your results by finding common patterns. A starting point for building event types, not a finished product.",
+    "syntax": "findtypes max=<int>",
+    "example1": "... | findtypes max=10",
+    "comment1": "Propose up to 10 event types.",
+    "related": "typer"
+  },
+  "foreach": {
+    "description": "Loop a templated sub-pipeline over each field in a wildcard list, with <<FIELD>> standing in for the current field. The clean way to apply the same eval to many fields.",
+    "syntax": "foreach <wc-field> ... [ <subpipeline with <<FIELD>>> ]",
+    "example1": "... | foreach bytes_* [ eval <<FIELD>> = <<FIELD>> / 1024 ]",
+    "comment1": "Convert every bytes_* field to KB at once.",
+    "related": "eval"
+  },
+  "format": {
+    "description": "Collapse subsearch results into a single search expression you can drop into another search. This is what subsearches use to hand results to the outer search.",
+    "syntax": "format [mvsep=<string>] [maxresults=<int>]",
+    "example1": "... | fields src_ip | format",
+    "comment1": "Turn a list of IPs into one OR'd filter.",
+    "related": "search, return"
+  },
+  "from": {
+    "description": "Pull data straight from a named dataset: a saved search, lookup, data model, or view. The modern entry point that replaces a few older commands.",
+    "syntax": "from <type>:<name>",
+    "example1": "| from datamodel:Network_Traffic.All_Traffic",
+    "comment1": "Start from a data model dataset.",
+    "related": "savedsearch, inputlookup, datamodel"
+  },
+  "gauge": {
+    "description": "Reshape a single number plus range bands into the format the gauge visualizations expect. Pure display prep.",
+    "syntax": "gauge <value-field> [<range> ...]",
+    "example1": "... | stats count | gauge count 0 50 80 100",
+    "comment1": "Feed a count into a gauge with color bands.",
+    "related": "eval, stats"
+  },
+  "gentimes": {
+    "description": "Generate a row per time interval over a range. Useful for building a time skeleton to fill in or join against.",
+    "syntax": "gentimes start=<time> [end=<time>] [increment=<interval>]",
+    "example1": "| gentimes start=-7 increment=1d",
+    "comment1": "One row per day for the last week.",
+    "related": "makeresults, map"
+  },
+  "geom": {
+    "description": "Attach geographic shape data to your results so a choropleth map can draw filled regions. Pairs with a geometry lookup.",
+    "syntax": "geom [<featureCollection>] [featureIdField=<field>]",
+    "example1": "... | stats count by state | geom geo_us_states featureIdField=state",
+    "comment1": "Prep state counts for a filled map.",
+    "related": "geomfilter, lookup, geostats"
+  },
+  "geomfilter": {
+    "description": "Clip a choropleth map to a bounding box so it only draws the region you care about.",
+    "syntax": "geomfilter [<min_x> <min_y> <max_x> <max_y>]",
+    "example1": "... | geomfilter -130 24 -65 50",
+    "comment1": "Box the map to the continental US.",
+    "related": "geom"
+  },
+  "geostats": {
+    "description": "Aggregate into geographic bins for a marker map, clustering nearby points so the map stays readable at any zoom.",
+    "syntax": "geostats [latfield=<field>] [longfield=<field>] <agg>(<field>) [by <field>]",
+    "example1": "... | geostats latfield=lat longfield=lon count",
+    "comment1": "Event clusters on a world map.",
+    "related": "stats, xyseries, chart"
+  },
+  "head": {
+    "description": "Keep the first N rows (10 if you don't say). It stops early, so it's cheap even on huge result sets.",
+    "syntax": "head [<N>] [<expression>]",
+    "example1": "... | head 20",
+    "comment1": "First 20 rows.",
+    "related": "tail, sort, reverse"
+  },
+  "highlight": {
+    "description": "Tell the UI to highlight the given terms in the events view. Display only, it doesn't change your data.",
+    "syntax": "highlight <string> ...",
+    "example1": "... | highlight error, timeout",
+    "comment1": "Make error and timeout pop in the raw view.",
+    "related": "iconify, abstract"
+  },
+  "history": {
+    "description": "Return your recent search history, either as events or as a results table. Handy for auditing what you've been running.",
+    "syntax": "history [events=<bool>]",
+    "example1": "| history",
+    "comment1": "Your recent searches as a table.",
+    "related": "search"
+  },
+  "iconify": {
+    "description": "Tell the UI to put a distinct icon next to each value of the listed fields, so rows are easier to scan by eye. Display only.",
+    "syntax": "iconify <field> ...",
+    "example1": "... | iconify status",
+    "comment1": "A unique icon per status code.",
+    "related": "highlight, abstract"
+  },
+  "input": {
+    "description": "Enable or disable data inputs from inside a search. Admin action, not a data transform.",
+    "syntax": "input (add|remove) [sourcetype=<string>] [index=<string>]",
+    "example1": "... | input add sourcetype=syslog",
+    "comment1": "Turn an input on.",
+    "related": "metadata"
+  },
+  "inputcsv": {
+    "description": "Load rows from a CSV file in the dispatch directory as results. Add a where clause to filter as it loads.",
+    "syntax": "inputcsv [append=<bool>] [max=<int>] <filename> [where <expr>]",
+    "example1": "| inputcsv hosts.csv",
+    "comment1": "Read hosts.csv in as events.",
+    "related": "outputcsv, inputlookup"
+  },
+  "inputlookup": {
+    "description": "Load a lookup table as search results. The fast way to start a search from reference data instead of indexed events.",
+    "syntax": "inputlookup [append=<bool>] <tablename> [where <expr>]",
+    "example1": "| inputlookup assets.csv where priority=\"high\"",
+    "comment1": "Start from your high-priority assets.",
+    "related": "inputcsv, lookup, outputlookup"
+  },
+  "iplocation": {
+    "description": "Look up city, region, country, and lat/long for an IP field using the bundled geo database. Adds the location fields right onto your events.",
+    "syntax": "iplocation [prefix=<string>] [allfields=<bool>] <ip-field>",
+    "example1": "... | iplocation src_ip",
+    "comment1": "Geolocate the source IP.",
+    "related": "lookup"
+  },
+  "join": {
+    "description": "Glue another search's results onto yours by a shared field. Tempting, but the subsearch is capped (50,000 rows) and it's usually slower than stats. Reach for stats by first.",
+    "syntax": "join [type=inner|left] <field> [ <subsearch> ]",
+    "example1": "... | join host [ search index=cmdb | fields host, owner ]",
+    "comment1": "Attach each host's owner.",
+    "related": "stats, lookup, append, selfjoin"
+  },
+  "kmeans": {
+    "description": "Cluster rows into k groups by their numeric fields. Each row gets a cluster label you can group on afterward.",
+    "syntax": "kmeans [k=<int>] [<field> ...]",
+    "example1": "... | kmeans k=3 bytes, duration",
+    "comment1": "Split traffic into three behavior groups.",
+    "related": "anomalies, anomalousvalue, cluster, outlier"
+  },
+  "kvform": {
+    "description": "Extract fields using a stored form template (a .form file). Niche extraction helper for fixed-layout data.",
+    "syntax": "kvform [form=<string>] [field=<field>]",
+    "example1": "... | kvform form=sales_record",
+    "comment1": "Parse events against a form template.",
+    "related": "extract, multikv, rex, xmlkv"
+  },
+  "loadjob": {
+    "description": "Reload the results of a finished search job by its ID or saved-search name, instead of re-running the search. Cheap way to fan out from one expensive base search.",
+    "syntax": "loadjob (<sid>|savedsearch=\"<name>\") [events=<bool>]",
+    "example1": "| loadjob savedsearch=\"admin:search:Daily Rollup\"",
+    "comment1": "Grab the last run's results, no re-run.",
+    "related": "inputcsv, file"
+  },
+  "localize": {
+    "description": "Find the time windows where your search actually returned events, so you can zoom in on the active periods.",
+    "syntax": "localize [maxpause=<int>]",
+    "example1": "... | localize maxpause=1h",
+    "comment1": "List the busy time ranges.",
+    "related": "map, transaction"
+  },
+  "localop": {
+    "description": "Force everything after it to run on the search head, not the indexers. Used when a downstream command can't or shouldn't run distributed.",
+    "syntax": "localop",
+    "example1": "... | localop | iplocation src_ip",
+    "comment1": "Pin the next command to the search head.",
+    "related": "search"
+  },
+  "lookup": {
+    "description": "Enrich events from a lookup table: match on a field or two, pull in the table's output fields.",
+    "syntax": "lookup <table> <field> [AS <field>] OUTPUT <field> ...",
+    "example1": "... | lookup geo_ip ip OUTPUT city, country",
+    "comment1": "Add city and country from an IP table.",
+    "related": "inputlookup, outputlookup"
+  },
+  "makecontinuous": {
+    "description": "Fill in the gaps on a numeric or time axis so a chart has no missing buckets. chart and timechart can do this for you, but you can call it directly.",
+    "syntax": "makecontinuous [<field>] [span=<span>]",
+    "example1": "... | makecontinuous _time span=1h",
+    "comment1": "No empty hours on the timeline.",
+    "related": "chart, timechart, bin"
+  },
+  "makejson": {
+    "description": "Pack several fields into one JSON-string field. Useful for emitting structured payloads or stashing many values in one place.",
+    "syntax": "makejson <field> ... output=<field>",
+    "example1": "... | makejson host status bytes output=event_json",
+    "comment1": "Bundle three fields into one JSON blob.",
+    "related": "spath, eval"
+  },
+  "makemv": {
+    "description": "Split a single field into a multivalue field on a delimiter or regex. The opposite of nomv.",
+    "syntax": "makemv (delim=<string>|tokenizer=<regex>) <field>",
+    "example1": "... | makemv delim=\",\" tags",
+    "comment1": "Turn a comma list into separate values.",
+    "related": "mvcombine, mvexpand, nomv"
+  },
+  "makeresults": {
+    "description": "Generate empty rows out of thin air, handy for testing or seeding an eval. One row by default; ask for more with count. Remember to eval any field you actually want, since the rows start blank.",
+    "syntax": "makeresults [count=<int>] [annotate=<bool>]",
+    "example1": "| makeresults count=5",
+    "comment1": "Five empty rows to play with.",
+    "related": "gentimes, eval"
+  },
+  "map": {
+    "description": "Loop: run a search once per input row, feeding each row's fields in as tokens. Powerful but watch the cap, it only runs 10 searches by default (maxsearches).",
+    "syntax": "map (search=\"<search>\"|<savedsearch>) [maxsearches=<int>]",
+    "example1": "... | map search=\"search index=audit user=$user$\"",
+    "comment1": "Run a per-user drilldown for each row.",
+    "related": "gentimes, search"
+  },
+  "mcatalog": {
+    "description": "Search the catalog of a metric index: which metric_name values and dimensions exist, and how big they are. The fast way to discover what is in a metrics store.",
+    "syntax": "mcatalog values(<field>) WHERE index=<metric-index> [by <dimension>]",
+    "example1": "| mcatalog values(metric_name) WHERE index=metrics",
+    "comment1": "List every metric in the index.",
+    "related": "mstats, mpreview, metadata"
+  },
+  "mcollect": {
+    "description": "Write results into a metric index from the search head. The metrics-store cousin of collect.",
+    "syntax": "mcollect index=<index> [split=<bool>] [<dimension> ...]",
+    "example1": "... | mcollect index=app_metrics split=t host",
+    "comment1": "Store host metrics for fast retrieval.",
+    "related": "collect, meventcollect, mstats"
+  },
+  "metadata": {
+    "description": "List the hosts, sources, or sourcetypes in an index along with first/last/recent times, read straight from index metadata. Very fast, no raw scan.",
+    "syntax": "metadata type=(hosts|sources|sourcetypes) index=<index>",
+    "example1": "| metadata type=sourcetypes index=main",
+    "comment1": "Every sourcetype in main, with timestamps.",
+    "related": "dbinspect, eventcount"
+  },
+  "metasearch": {
+    "description": "Search index metadata by terms without pulling the full raw events. Lighter than search when you only need the metadata fields.",
+    "syntax": "metasearch [<logical-expression>]",
+    "example1": "| metasearch index=web sourcetype=access",
+    "comment1": "Metadata-level hits, no raw text.",
+    "related": "search, metadata"
+  },
+  "meventcollect": {
+    "description": "Write results into a metric index from the indexers (runs distributed), unlike mcollect which runs on the search head.",
+    "syntax": "meventcollect index=<index> [split=<bool>] [<dimension> ...]",
+    "example1": "... | meventcollect index=app_metrics split=t",
+    "comment1": "Store metrics at the indexer tier.",
+    "related": "collect, mcollect"
+  },
+  "mpreview": {
+    "description": "Pull raw metric data points straight from a metric index, no aggregation. Handy for eyeballing what is actually stored before you mstats it.",
+    "syntax": "mpreview [index=<metric-index>] [filter=<filter>] [earliest=<time>] [latest=<time>]",
+    "example1": "| mpreview index=metrics filter=\"metric_name=cpu.*\"",
+    "comment1": "Raw CPU metric points.",
+    "related": "mstats, mcatalog"
+  },
+  "mstats": {
+    "description": "Run stats over a metric index using measurement, metric_name, and dimensions. The fast path for metrics data, way quicker than searching raw.",
+    "syntax": "mstats <agg>(<metric>) WHERE index=<index> [by <dimension> ...]",
+    "example1": "| mstats avg(cpu.percent) WHERE index=metrics by host span=1m",
+    "comment1": "Per-host CPU average from the metric store.",
+    "related": "tstats, stats"
+  },
+  "multikv": {
+    "description": "Parse table-formatted events (think command output with a header row and aligned columns) into one event per data row.",
+    "syntax": "multikv [conf=<stanza>] [<options>]",
+    "example1": "... | multikv",
+    "comment1": "Split a ps-style table into per-row events.",
+    "related": "extract, kvform, rex, xmlkv"
+  },
+  "multisearch": {
+    "description": "Run several streaming subsearches at the same time and merge their events as they come. Concurrent, unlike append which runs them one after another.",
+    "syntax": "multisearch [ <subsearch> ] [ <subsearch> ] ...",
+    "example1": "| multisearch [ search index=web ] [ search index=db ]",
+    "comment1": "Stream web and db events together.",
+    "related": "append, union, join"
+  },
+  "mvcombine": {
+    "description": "Collapse rows that differ only in one field into a single row with that field as a multivalue. The inverse of mvexpand.",
+    "syntax": "mvcombine [delim=<string>] <field>",
+    "example1": "... | stats values(port) AS port by host | mvcombine port",
+    "comment1": "One row per host, ports as a multivalue.",
+    "related": "makemv, mvexpand, nomv"
+  },
+  "mvexpand": {
+    "description": "Blow a multivalue field out into one row per value, copying the rest of the fields. The inverse of mvcombine. Watch row counts on big multivalues.",
+    "syntax": "mvexpand <field> [limit=<int>]",
+    "example1": "... | mvexpand recipients",
+    "comment1": "One row per recipient.",
+    "related": "makemv, mvcombine, nomv"
+  },
+  "nomv": {
+    "description": "Flatten a multivalue field back into a single value. The opposite of makemv.",
+    "syntax": "nomv <field>",
+    "example1": "... | nomv tags",
+    "comment1": "Squash the multivalue back to one string.",
+    "related": "makemv, mvcombine, mvexpand"
+  },
+  "outlier": {
+    "description": "Cap or remove numeric outliers based on the interquartile range, so a few extreme values stop skewing your charts.",
+    "syntax": "outlier [action=(remove|transform)] [<field> ...]",
+    "example1": "... | outlier action=remove latency",
+    "comment1": "Drop the latency spikes.",
+    "related": "anomalies, anomalousvalue, cluster, kmeans"
+  },
+  "outputcsv": {
+    "description": "Write your results to a CSV file in the dispatch directory. Mind override_if_empty: by default an empty result set can wipe the existing file.",
+    "syntax": "outputcsv [append=<bool>] [override_if_empty=<bool>] <filename>",
+    "example1": "... | outputcsv monthly_report.csv",
+    "comment1": "Save results to CSV.",
+    "related": "inputcsv, outputlookup"
+  },
+  "outputlookup": {
+    "description": "Write results to a lookup table (CSV or KV store). Like outputcsv, watch override_if_empty so an empty search doesn't blank your table.",
+    "syntax": "outputlookup [append=<bool>] [override_if_empty=<bool>] <tablename>",
+    "example1": "... | outputlookup asset_inventory.csv",
+    "comment1": "Refresh the asset lookup.",
+    "related": "inputlookup, lookup, outputcsv"
+  },
+  "outputtelemetry": {
+    "description": "Send results to Splunk's telemetry endpoint. Internal instrumentation, not a command you'd use in normal searches.",
+    "syntax": "outputtelemetry input=<string> [type=<string>] [component=<string>]",
+    "example1": "... | outputtelemetry input=usage type=event",
+    "comment1": "Emit a telemetry event.",
+    "related": "collect"
+  },
+  "outputtext": {
+    "description": "Dump each event's raw text into the _xml field. Mostly a helper for exporting or further processing the raw string.",
+    "syntax": "outputtext [usexml=<bool>]",
+    "example1": "... | outputtext",
+    "comment1": "Put _raw into _xml.",
+    "related": "outputcsv"
+  },
+  "overlap": {
+    "description": "Check a summary index for events that overlap in time or have gaps, so you can spot double-counted or missing summary data. Run it sparingly to sanity-check summaries.",
+    "syntax": "overlap",
+    "example1": "index=summary_daily | overlap",
+    "comment1": "Find overlaps or gaps in the summary.",
+    "related": "collect, sistats"
+  },
+  "pivot": {
+    "description": "Run a pivot-style report against a data model object using plain pivot terms, no SPL aggregation syntax needed. What the Pivot UI generates under the hood.",
+    "syntax": "pivot <model> <object> <pivot-element>",
+    "example1": "| pivot Network_Traffic All_Traffic count(All_Traffic) AS total",
+    "comment1": "Total traffic from the data model.",
+    "related": "datamodel, tstats"
+  },
+  "predict": {
+    "description": "Forecast future values of a time series, with confidence bounds. Feed it a timechart and it projects the next points.",
+    "syntax": "predict <field> [AS <newfield>] [algorithm=<algo>] [future_timespan=<int>]",
+    "example1": "... | timechart span=1d count | predict count future_timespan=7",
+    "comment1": "Project the next 7 days.",
+    "related": "trendline, x11"
+  },
+  "rangemap": {
+    "description": "Bucket a numeric field into named ranges (like low/medium/high) and write the label into a range field. Great for dashboards and color coding.",
+    "syntax": "rangemap field=<field> <name>=<lo>-<hi> ... [default=<string>]",
+    "example1": "... | rangemap field=latency low=0-100 high=101-99999 default=unknown",
+    "comment1": "Label each row's latency band.",
+    "related": "eval"
+  },
+  "rare": {
+    "description": "Show the least common values of a field, with counts and percentages. The flip side of top.",
+    "syntax": "rare [<N>] <field> ... [by <field> ...]",
+    "example1": "... | rare 10 user_agent",
+    "comment1": "The 10 rarest user agents.",
+    "related": "top, stats, sirare"
+  },
+  "redistribute": {
+    "description": "Speed up heavy stats, tstats, and similar commands by spreading the reduce step across indexers (parallel reduce). A performance lever for big group-by jobs.",
+    "syntax": "redistribute [num_of_reducers=<int>] [by <field> ...]",
+    "example1": "... | redistribute by host | stats count by host, status",
+    "comment1": "Parallelize a wide group-by.",
+    "related": "stats, tstats"
+  },
+  "regex": {
+    "description": "Keep or drop rows by matching _raw (or a field) against a regular expression. It filters; it does not extract. Use rex when you want fields.",
+    "syntax": "regex [<field>(=|!=)]<regex>",
+    "example1": "... | regex _raw=\"(?i)error|fail\"",
+    "comment1": "Keep only error-ish events.",
+    "related": "rex, search, where"
+  },
+  "relevancy": {
+    "description": "Score how well each event matches the search terms and write it to a relevancy field. Rarely used, but there if you want term-match ranking.",
+    "syntax": "relevancy",
+    "example1": "login failure | relevancy | sort 0 -relevancy",
+    "comment1": "Best term matches first.",
+    "related": "abstract, highlight, sort"
+  },
+  "reltime": {
+    "description": "Add a reltime field with a human-readable gap between now and each event's _time, like \"3 hours ago\".",
+    "syntax": "reltime",
+    "example1": "... | reltime",
+    "comment1": "How long ago each event happened.",
+    "related": "convert"
+  },
+  "rename": {
+    "description": "Rename fields, with wildcards to remap a bunch at once. Quote names that contain spaces.",
+    "syntax": "rename <field> AS <newname> ...",
+    "example1": "... | rename src_ip AS source, dest_ip AS destination",
+    "comment1": "Friendlier field names.",
+    "related": "fields, table"
+  },
+  "replace": {
+    "description": "Swap exact field values for new ones, optionally scoped to certain fields. Good for tidying up codes into labels.",
+    "syntax": "replace <old> WITH <new> ... [IN <field> ...]",
+    "example1": "... | replace 200 WITH \"OK\", 404 WITH \"Not Found\" IN status",
+    "comment1": "Turn status codes into words.",
+    "related": "fillnull, rename"
+  },
+  "require": {
+    "description": "Fail the search if the pipeline up to here produced zero results. Drop it in front of an alert action so the alert never fires on an empty set.",
+    "syntax": "require",
+    "example1": "... | where score > 90 | require",
+    "comment1": "Error out instead of continuing with no rows.",
+    "related": "where, search"
+  },
+  "rest": {
+    "description": "Hit a Splunk REST endpoint and turn the response into search results. The way to query Splunk's own config and state as data.",
+    "syntax": "rest <uri> [count=<int>] [<arg>=<value> ...]",
+    "example1": "| rest /services/server/info",
+    "comment1": "Server info as a result row.",
+    "related": "search"
+  },
+  "return": {
+    "description": "Hand a clean set of values back from a subsearch to the outer search. Tidier and safer than letting a raw subsearch leak fields.",
+    "syntax": "return [<count>] [<field>|<alias>=<field>|$<field>] ...",
+    "example1": "... | sort 0 -count | return 5 host",
+    "comment1": "Pass the top 5 hosts up to the outer search.",
+    "related": "search, format"
+  },
+  "reverse": {
+    "description": "Flip the result order top to bottom. It does not sort, it just reverses what's already there.",
+    "syntax": "reverse",
+    "example1": "... | reverse",
+    "comment1": "Last row first.",
+    "related": "head, sort, tail"
+  },
+  "rex": {
+    "description": "Pull new fields out of raw text with a regex. Name a capture group (?<name>...) and it becomes a field. There's a sed mode too for find-and-replace.",
+    "syntax": "rex [field=<field>] \"<regex>\"",
+    "example1": "... | rex field=uri \"/(?<section>\\w+)/\"",
+    "comment1": "Grab the first URL path segment into section.",
+    "related": "extract, erex, replace, spath"
+  },
+  "rtorder": {
+    "description": "Buffer real-time events and re-emit them in ascending time order. Niche, real-time-search only.",
+    "syntax": "rtorder [buffer_span=<span>] [max_buffer_size=<int>]",
+    "example1": "... | rtorder buffer_span=30s",
+    "comment1": "Smooth out-of-order real-time events.",
+    "related": "sort"
+  },
+  "savedsearch": {
+    "description": "Run a saved search by name and return its results inline. Reuse a saved report inside an ad-hoc search.",
+    "syntax": "savedsearch <name>",
+    "example1": "| savedsearch \"Top Talkers\"",
+    "comment1": "Pull in a saved report's results.",
+    "related": "search, loadjob"
+  },
+  "script": {
+    "description": "Run an external custom search command (a script registered in commands.conf). The hook for your own Python-backed commands.",
+    "syntax": "script <command-name> [<arg> ...]",
+    "example1": "... | script mylookup arg1 arg2",
+    "comment1": "Call a custom command.",
+    "related": "rest"
+  },
+  "scrub": {
+    "description": "Anonymize results by masking values against term and dictionary files. For sharing data without leaking the sensitive bits.",
+    "syntax": "scrub [public-terms=<file>] [private-terms=<file>] [dictionary=<file>]",
+    "example1": "... | scrub",
+    "comment1": "Mask sensitive values before export.",
+    "related": "replace"
+  },
+  "search": {
+    "description": "Filter events by field, value, term, and time. It's the implicit first command of every search, so you can drop the leading search keyword.",
+    "syntax": "search <field><op><value> ...",
+    "example1": "search index=web status=500",
+    "comment1": "Just the 500s in the web index.",
+    "related": "where, regex"
+  },
+  "searchtxn": {
+    "description": "Find the events that make up named transactions matching your constraints. A transaction-aware search shortcut.",
+    "syntax": "searchtxn <transaction-name> [<search-string>]",
+    "example1": "| searchtxn email_txn \"to=admin\"",
+    "comment1": "Pull transactions involving admin.",
+    "related": "transaction"
+  },
+  "selfjoin": {
+    "description": "Join your results to themselves on a field, lining up rows that share a value. Same caveats as join, so prefer stats or eventstats when you can.",
+    "syntax": "selfjoin [<options>] <field> ...",
+    "example1": "... | selfjoin user",
+    "comment1": "Pair up rows that share a user.",
+    "related": "join, stats"
+  },
+  "sendalert": {
+    "description": "Trigger a configured alert action (webhook, script, ticket, and so on) from inside a search, passing the results along. The manual version of what a saved alert fires on its own.",
+    "syntax": "sendalert <action-name> [param.<name>=<value> ...]",
+    "example1": "... | sendalert slack param.channel=\"#soc\"",
+    "comment1": "Post the results to a Slack action.",
+    "related": "sendemail, outputtelemetry"
+  },
+  "sendemail": {
+    "description": "Email your results to one or more addresses, with optional CSV or PDF attached. Usually fired from an alert, but it works inline too.",
+    "syntax": "sendemail to=<addr> [subject=<string>] [sendresults=<bool>] [format=<csv|table>]",
+    "example1": "... | sendemail to=\"team@example.com\" subject=\"Daily report\" sendresults=t",
+    "comment1": "Mail the results to the team.",
+    "related": "outputcsv"
+  },
+  "set": {
+    "description": "Do set math on two subsearches: union, diff (in first but not second), or intersect (in both). Each side is a full subsearch.",
+    "syntax": "set (union|diff|intersect) [ <subsearch> ] [ <subsearch> ]",
+    "example1": "| set diff [ search ... | fields user ] [ search ... | fields user ]",
+    "comment1": "Users in the first search but not the second.",
+    "related": "append, join, diff"
+  },
+  "shape": {
+    "description": "Describe the shape of a numeric multivalue field as a symbolic string (rising, falling, flat). Legacy, rarely used.",
+    "syntax": "shape <field> [maxvalues=<int>]",
+    "example1": "... | shape readings",
+    "comment1": "Summarize the trend of a series.",
+    "related": "anomalousvalue, cluster, outlier"
+  },
+  "sichart": {
+    "description": "The summary-index feeding version of chart. You normally don't hand-write these, summary indexing generates them so the rolled-up data charts correctly later.",
+    "syntax": "sichart <chart-arguments>",
+    "example1": "... | sichart count over status",
+    "comment1": "Summary-friendly chart prestats.",
+    "related": "chart, collect, sistats"
+  },
+  "sirare": {
+    "description": "The summary-index feeding version of rare. Generated by summary indexing, not something you'd type by hand.",
+    "syntax": "sirare <rare-arguments>",
+    "example1": "... | sirare user_agent",
+    "comment1": "Summary-friendly rare prestats.",
+    "related": "rare, collect, sistats"
+  },
+  "sistats": {
+    "description": "The summary-index feeding version of stats. It stores partial aggregates so a later stats over the summary index comes out right. Summary indexing writes these for you.",
+    "syntax": "sistats <stats-arguments>",
+    "example1": "... | sistats count by host",
+    "comment1": "Summary-friendly stats prestats.",
+    "related": "stats, collect, sitop"
+  },
+  "sitimechart": {
+    "description": "The summary-index feeding version of timechart. Generated by summary indexing to keep time-based rollups accurate.",
+    "syntax": "sitimechart <timechart-arguments>",
+    "example1": "... | sitimechart count by status",
+    "comment1": "Summary-friendly timechart prestats.",
+    "related": "timechart, collect, sistats"
+  },
+  "sitop": {
+    "description": "The summary-index feeding version of top. Written by summary indexing so top works over the summarized data.",
+    "syntax": "sitop <top-arguments>",
+    "example1": "... | sitop url",
+    "comment1": "Summary-friendly top prestats.",
+    "related": "top, collect, sistats"
+  },
+  "sort": {
+    "description": "Sort results by a field, with - for descending. Throw a 0 in like sort 0 -count, or Splunk bails after the first 10,000 rows with no warning.",
+    "syntax": "sort [<limit>] [-|+]<field> ...",
+    "example1": "... | sort 0 -count",
+    "comment1": "Every row, highest count first.",
+    "related": "reverse, head, tail"
+  },
+  "spath": {
+    "description": "Pull values out of JSON or XML into fields. Give it a path to grab one value, or let it auto-extract the lot.",
+    "syntax": "spath [output=<field>] [path=<datapath>] [input=<field>]",
+    "example1": "... | spath input=payload path=user.email output=email",
+    "comment1": "Reach into nested JSON for the email.",
+    "related": "rex, makejson"
+  },
+  "stats": {
+    "description": "Roll your events up into a summary table. Pick functions like count, sum, avg, or dc, and group by any fields you want. Watch the by clause: a null in a group-by field silently drops that row, so fillnull first if those rows matter.",
+    "syntax": "stats <agg>(<field>) [AS <name>] ... [by <field> ...]",
+    "example1": "... | stats count, avg(bytes) by host",
+    "comment1": "Count and average bytes per host.",
+    "related": "eventstats, streamstats, tstats, chart, timechart"
+  },
+  "strcat": {
+    "description": "Glue several fields (and literal text) together into one new field. The quick concatenate without writing an eval.",
+    "syntax": "strcat [allrequired=<bool>] <field-or-string> ... <destfield>",
+    "example1": "... | strcat host \":\" port endpoint",
+    "comment1": "Build host:port into one field.",
+    "related": "eval"
+  },
+  "streamstats": {
+    "description": "Aggregate row by row as results stream past, so each row sees the running stat up to and including itself. Order-dependent, and a window keeps it bounded. This is your running totals and moving windows.",
+    "syntax": "streamstats [window=<int>] [current=<bool>] <agg>(<field>) ... [by <field> ...]",
+    "example1": "... | streamstats sum(bytes) AS running_bytes by host",
+    "comment1": "Running byte total per host.",
+    "related": "eventstats, stats, accum, delta"
+  },
+  "table": {
+    "description": "Show just the fields you name, in order, as a table. Unlike fields it keeps everything as-is for display, but it can drop info later commands need, so use fields mid-pipeline and table at the end.",
+    "syntax": "table <field> ...",
+    "example1": "... | table _time, host, status, bytes",
+    "comment1": "A clean four-column table.",
+    "related": "fields, rename"
+  },
+  "tags": {
+    "description": "Add the tags configured for your field values as new fields, so tagged hosts or event types come through labeled.",
+    "syntax": "tags [outputfield=<field>] [<field> ...]",
+    "example1": "... | tags outputfield=host_tags host",
+    "comment1": "Surface the tags on each host.",
+    "related": "eval"
+  },
+  "tail": {
+    "description": "Keep the last N rows (10 if you don't say). Note it returns them in reverse, oldest of the tail last.",
+    "syntax": "tail [<N>]",
+    "example1": "... | tail 20",
+    "comment1": "The final 20 rows.",
+    "related": "head, reverse, sort"
+  },
+  "timechart": {
+    "description": "Like stats, but always bucketed by time, one row per time bin. Set the bucket size with span.",
+    "syntax": "timechart [span=<span>] <agg>(<field>) [by <field>]",
+    "example1": "... | timechart span=1h count by status",
+    "comment1": "Hourly counts, split by status.",
+    "related": "chart, stats, bin"
+  },
+  "timewrap": {
+    "description": "Overlay equal time periods on one timechart, so this week sits on top of last week for easy comparison.",
+    "syntax": "timewrap <span> [align=(now|end)] [series=(relative|exact|short)]",
+    "example1": "... | timechart span=1h count | timewrap 1d",
+    "comment1": "Today's curve over yesterday's.",
+    "related": "timechart"
+  },
+  "tojson": {
+    "description": "Pack fields into a JSON object in a new field. Name the fields and value types, or let it take everything. The structured-output cousin of makejson.",
+    "syntax": "tojson [<field> ...] [output_field=<field>]",
+    "example1": "... | tojson host status bytes output_field=event_json",
+    "comment1": "Roll three fields into one JSON field.",
+    "related": "makejson, spath, eval"
+  },
+  "top": {
+    "description": "Show the most common values of a field, with counts and percentages. The flip side of rare.",
+    "syntax": "top [<N>] <field> ... [by <field> ...]",
+    "example1": "... | top 10 url",
+    "comment1": "The 10 busiest URLs.",
+    "related": "rare, sitop, stats"
+  },
+  "transaction": {
+    "description": "Stitch related events into single transactions grouped by shared fields and time. Flexible but a memory hog on big data, so prefer stats by an ID when the grouping is simple.",
+    "syntax": "transaction <field> ... [maxspan=<span>] [startswith=<string>] [endswith=<string>]",
+    "example1": "... | transaction session_id maxspan=30m",
+    "comment1": "Bundle each session's events.",
+    "related": "searchtxn, stats"
+  },
+  "transpose": {
+    "description": "Flip the table: rows become columns and columns become rows. Handy when you want to chart what's currently in rows.",
+    "syntax": "transpose [<int>] [column_name=<string>] [header_field=<field>]",
+    "example1": "... | stats count by status | transpose",
+    "comment1": "Statuses across the top instead of down the side.",
+    "related": "fields, stats"
+  },
+  "trendline": {
+    "description": "Compute moving averages (simple, exponential, or weighted) on a field. The easy button for smoothing a noisy series.",
+    "syntax": "trendline (sma|ema|wma)<period>(<field>) [AS <newfield>] ...",
+    "example1": "... | timechart count | trendline sma5(count) AS trend",
+    "comment1": "5-point smoothed line over the count.",
+    "related": "accum, autoregress, delta, streamstats"
+  },
+  "tscollect": {
+    "description": "Write your events into tsidx files under a namespace so tstats can scan them fast later. Like collect, but it builds a time-series index instead of a summary index.",
+    "syntax": "tscollect [namespace=<string>] [squashcase=<bool>] [keepresults=<bool>]",
+    "example1": "index=web | fields _time host status | tscollect namespace=web_tsidx",
+    "comment1": "Stage web fields for fast tstats.",
+    "related": "tstats, collect, stats"
+  },
+  "tstats": {
+    "description": "Run stats over indexed fields in tsidx files, including accelerated data models. Blazing fast compared to a normal search, but limited to indexed fields. Reach for this on huge data sets.",
+    "syntax": "tstats <agg>(<field>) FROM datamodel=<model> [WHERE <filter>] [by <field> ...]",
+    "example1": "| tstats count FROM datamodel=Network_Traffic by All_Traffic.dest_port",
+    "comment1": "Fast port counts from an accelerated model.",
+    "related": "stats, mstats, datamodel"
+  },
+  "typeahead": {
+    "description": "Return autocomplete suggestions for a search prefix. Powers the UI's type-ahead; rarely run by hand.",
+    "syntax": "typeahead prefix=<string> count=<int> [index=<index>]",
+    "example1": "| typeahead prefix=\"source\" count=10",
+    "comment1": "Suggestions for terms starting with source.",
+    "related": "metadata"
+  },
+  "typer": {
+    "description": "Tag each event with its matching event type into the eventtype field. The runtime side of event typing.",
+    "syntax": "typer",
+    "example1": "... | typer",
+    "comment1": "Label events with their event types.",
+    "related": "findtypes"
+  },
+  "union": {
+    "description": "Merge multiple datasets or searches into one result stream. The cleaner, modern way to combine sources versus chaining appends.",
+    "syntax": "union <dataset> <dataset> ...",
+    "example1": "| union [ search index=web ] [ search index=cdn ]",
+    "comment1": "Web and CDN events in one stream.",
+    "related": "append, multisearch"
+  },
+  "uniq": {
+    "description": "Drop rows that are identical to the row right above them. It only catches adjacent dupes, so dedup is usually what you actually want.",
+    "syntax": "uniq",
+    "example1": "... | sort 0 host | uniq",
+    "comment1": "Collapse back-to-back duplicate rows.",
+    "related": "dedup"
+  },
+  "untable": {
+    "description": "Turn a charted table back into stats-style rows of field/value. The inverse of xyseries, handy for reshaping chart output.",
+    "syntax": "untable <x-field> <name-field> <value-field>",
+    "example1": "... | untable _time series value",
+    "comment1": "Flatten a multi-series chart into long rows.",
+    "related": "xyseries"
+  },
+  "walklex": {
+    "description": "Walk the lexicon of an index and list the terms or field values it holds, with counts. Good for discovery and for spotting high-cardinality fields. Needs a recent Splunk version.",
+    "syntax": "walklex (index=<index>|datamodel=<model>) [type=<term|field>] [prefix=<string>]",
+    "example1": "| walklex index=web type=field prefix=\"status\"",
+    "comment1": "Terms in the web index starting with status.",
+    "related": "metadata, tstats, fieldsummary"
+  },
+  "where": {
+    "description": "Keep only the rows where your expression is true. Like search, but it does math and can compare one field against another.",
+    "syntax": "where <expression>",
+    "example1": "... | where bytes > avg_bytes",
+    "comment1": "Rows above the running average.",
+    "related": "search, eval"
+  },
+  "x11": {
+    "description": "Strip seasonal swings out of a time series so the real trend underneath shows through. Seasonal-adjustment cousin of predict.",
+    "syntax": "x11 (add|mult)<period>(<field>) [AS <newfield>]",
+    "example1": "... | timechart span=1d count | x11 mult12(count)",
+    "comment1": "De-seasonalize a daily series.",
+    "related": "trendline, predict"
+  },
+  "xmlkv": {
+    "description": "Extract key/value pairs from XML-tagged text into fields. The XML counterpart to extract.",
+    "syntax": "xmlkv",
+    "example1": "... | xmlkv",
+    "comment1": "Pull fields out of XML events.",
+    "related": "extract, kvform, multikv, xpath"
+  },
+  "xmlunescape": {
+    "description": "Turn XML entities like &lt; back into their real characters. Cleanup for events that arrived XML-escaped.",
+    "syntax": "xmlunescape",
+    "example1": "... | xmlunescape",
+    "comment1": "Decode escaped XML back to plain text.",
+    "related": "xmlkv"
+  },
+  "xpath": {
+    "description": "Pull a value out of an XML field using an XPath expression and write it to a new field.",
+    "syntax": "xpath [field=<field>] <xpath> [outfield=<field>]",
+    "example1": "... | xpath field=body \"//user/@id\" outfield=user_id",
+    "comment1": "Grab the user id attribute from XML.",
+    "related": "spath, xmlkv, rex"
+  },
+  "xyseries": {
+    "description": "Reshape long rows into a chart-ready table: one column per series. The inverse of untable, what you run before a multi-series chart.",
+    "syntax": "xyseries <x-field> <series-field> <value-field>",
+    "example1": "... | xyseries _time host bytes",
+    "comment1": "One column per host, ready to plot.",
+    "related": "untable, chart, timechart"
+  }
+}

@@ -392,12 +392,28 @@ function startApp() {
     // Fly out to the right of the sidebar input so the dropdown never
     // opens downward off-screen when the docs panel is collapsed.
     var r = refComboInput.getBoundingClientRect();
-    refComboList.style.top  = r.top + 'px';
+    var margin = 12;
+    var maxH = Math.round(window.innerHeight * 0.7);
+    var minH = 200;
+
+    // Vertical: align with the input, but never run off the bottom. Cap the
+    // height to the room below; if that is too tight, lift the top so the
+    // list bottom-anchors above the viewport edge instead of clipping.
+    var top = r.top;
+    var h = Math.min(maxH, window.innerHeight - top - margin);
+    if (h < minH) {
+      h = Math.min(maxH, window.innerHeight - 2 * margin);
+      top = window.innerHeight - margin - h;
+      if (top < margin) top = margin;
+    }
+    refComboList.style.top = top + 'px';
+    refComboList.style.maxHeight = h + 'px';
+
+    // Horizontal: fly right of the sidebar; clamp if the viewport is narrow.
     refComboList.style.left = (r.right + 8) + 'px';
-    // Clamp horizontally if viewport too narrow
     var listW = refComboList.offsetWidth || 320;
-    if (r.right + 8 + listW > window.innerWidth - 12) {
-      refComboList.style.left = (window.innerWidth - listW - 12) + 'px';
+    if (r.right + 8 + listW > window.innerWidth - margin) {
+      refComboList.style.left = (window.innerWidth - listW - margin) + 'px';
     }
   }
 

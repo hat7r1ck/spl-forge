@@ -101,6 +101,8 @@ Decode is built to be safe to receive from anyone:
 
 - **[Monaco Editor](https://github.com/microsoft/monaco-editor)** by
   Microsoft, licensed MIT (see `lib/monaco-editor/LICENSE`).
+- **[Catppuccin](https://github.com/catppuccin/catppuccin)** for the Mocha
+  color palette used in the default theme, licensed MIT.
 - The SPL tokenizer (`js/spl_language.js`) and the command and syntax
   references (`data/spl.json`, `data/spl2-reference.json`) are original
   work written for this project, informed by Splunk's public

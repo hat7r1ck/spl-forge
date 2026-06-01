@@ -283,25 +283,6 @@ body {
 }
 .topbar-extras { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
-.icon-btn {
-  background: transparent;
-  border: 1px solid var(--surface1);
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--subtext0);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.icon-btn:hover {
-  color: var(--text);
-  border-color: var(--surface2);
-}
-.icon-btn > svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
-
 .theme-switcher {
   display: inline-flex;
   border: 1px solid var(--surface1);

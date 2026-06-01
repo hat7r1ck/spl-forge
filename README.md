@@ -1,5 +1,9 @@
 # SPL Forge
 
+<p align="center">
+  <img src="assets/spl-forge-cascade.png" alt="SPL Forge in Light, Dark, and Catppuccin Mocha themes" width="820">
+</p>
+
 A browser-based syntax editor for Splunk SPL searches and dashboard XML.
 Static site, no build step, runs anywhere you can serve a folder
 (including GitHub Pages).
